@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cody">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FF6B35">
+<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22Cody%20-%20Your%20English%20Buddy%22%2C%22short_name%22%3A%22Cody%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F0F7FF%22%2C%22theme_color%22%3A%22%23FF6B35%22%7D">
+<title>Cody - Your English Buddy</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --orange:#FF6B35; --sky:#4ECDC4; --yellow:#FFE66D;
+    --pink:#FF8FAB; --cream:#FFF8F0; --bg:#F0F7FF;
+    --text:#2D3436; --cody-light:#F5E0C3; --cody-mid:#E8C9A0;
+    --cody-dark:#C9A67A; --cody-nose:#3D2B1F;
+  }
+  html,body { height:100%; overflow:hidden; }
+  body {
+    font-family:'Fredoka','Nunito',system-ui,sans-serif;
+    background:var(--bg); display:flex; flex-direction:column;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background:linear-gradient(135deg,#FF6B35 0%,#FF8FAB 100%);
+    padding:10px 16px; display:flex; align-items:center; gap:12px;
+    box-shadow:0 4px 20px rgba(255,107,53,.3); z-index:10; flex-shrink:0;
+  }
+  .header-avatar {
+    width:50px; height:50px; border-radius:50%;
+    background:var(--cream); overflow:hidden; flex-shrink:0;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+    border:2.5px solid rgba(255,255,255,.5);
+  }
+  .header-avatar svg { width:100%; height:100%; }
+  .header-info { flex:1; }
+  .header-name { font-size:20px; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .header-status {
+    font-size:12px; color:rgba(255,255,255,.85);
+    display:flex; align-items:center; gap:5px; margin-top:1px;
+  }
+  .status-dot {
+    width:8px; height:8px; border-radius:50%; background:#7CFF6B;
+    box-shadow:0 0 6px #7CFF6B; animation:pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  /* ===== CHAT ===== */
+  .chat-area {
+    flex:1; overflow-y:auto; padding:14px 14px 8px;
+    display:flex; flex-direction:column; gap:10px;
+    scroll-behavior:smooth;
+    background:
+      radial-gradient(circle at 15% 85%, rgba(78,205,196,.07) 0%, transparent 50%),
+      radial-gradient(circle at 85% 15%, rgba(255,107,53,.05) 0%, transparent 50%),
+      var(--bg);
+  }
+  .chat-area::-webkit-scrollbar { width:3px; }
+  .chat-area::-webkit-scrollbar-thumb { background:rgba(0,0,0,.08); border-radius:2px; }
+
+  .msg-row {
+    display:flex; gap:8px; max-width:90%;
+    animation:msgIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .msg-row.ai { align-self:flex-start; }
+  .msg-row.user { align-self:flex-end; flex-direction:row-reverse; }
+  @keyframes msgIn { from{opacity:0;transform:translateY(14px) scale(.95)} to{opacity:1;transform:none} }
+
+  .msg-avatar {
+    width:38px; height:38px; border-radius:50%; overflow:hidden;
+    flex-shrink:0; align-self:flex-end;
+    box-shadow:0 2px 8px rgba(0,0,0,.1);
+  }
+  .msg-avatar svg { width:100%; height:100%; }
+  .msg-row.user .msg-avatar {
+    background:linear-gradient(135deg,#E8CDB0,#D4B48C);
+    display:flex; align-items:center; justify-content:center;
+    border:2px solid rgba(255,255,255,.5);
+  }
+
+  .msg-bubble {
+    padding:12px 16px; border-radius:18px;
+    font-size:15.5px; line-height:1.65; word-break:break-word; position:relative;
+  }
+  .msg-row.ai .msg-bubble {
+    background:#fff; color:var(--text); border-bottom-left-radius:5px;
+    box-shadow:0 2px 10px rgba(0,0,0,.05);
+  }
+  .msg-row.user .msg-bubble {
+    background:linear-gradient(135deg,#4ECDC4,#45B7AA); color:#fff;
+    border-bottom-right-radius:5px; box-shadow:0 2px 10px rgba(78,205,196,.3);
+  }
+  .msg-bubble .en { font-weight:600; font-size:16px; }
+  .msg-bubble .zh { font-size:12.5px; opacity:.55; margin-top:4px; font-family:'Nunito',sans-serif; }
+  .msg-row.user .msg-bubble .zh { opacity:.8; }
+
+  .word-hint {
+    display:inline-block; background:rgba(255,230,109,.3); border-radius:5px;
+    padding:0 5px; cursor:pointer; transition:background .15s;
+    border-bottom:2px dashed rgba(255,107,53,.35);
+  }
+  .word-hint:active { background:rgba(255,230,109,.55); }
+
+  /* Typing */
+  .typing-row { display:flex; gap:8px; align-self:flex-start; max-width:90%; }
+  .typing-bubble {
+    background:#fff; padding:14px 20px; border-radius:18px;
+    border-bottom-left-radius:5px; display:flex; gap:5px; align-items:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.05);
+  }
+  .typing-dot {
+    width:7px; height:7px; border-radius:50%; background:var(--cody-dark);
+    animation:bounce 1.2s infinite;
+  }
+  .typing-dot:nth-child(2){animation-delay:.15s}
+  .typing-dot:nth-child(3){animation-delay:.3s}
+  @keyframes bounce {
+    0%,60%,100%{transform:translateY(0);opacity:.35}
+    30%{transform:translateY(-7px);opacity:1}
+  }
+
+  /* ===== QUICK REPLIES ===== */
+  .quick-replies {
+    display:flex; gap:7px; padding:6px 14px 2px;
+    overflow-x:auto; flex-shrink:0; -webkit-overflow-scrolling:touch;
+  }
+  .quick-replies::-webkit-scrollbar{display:none}
+  .quick-btn {
+    flex-shrink:0; padding:9px 16px; border-radius:22px;
+    border:2px solid var(--orange); background:rgba(255,107,53,.06);
+    color:var(--orange); font-family:'Fredoka',sans-serif;
+    font-size:13.5px; font-weight:600; cursor:pointer;
+    transition:all .2s; white-space:nowrap;
+  }
+  .quick-btn:active { background:var(--orange); color:#fff; transform:scale(.95); }
+
+  /* ===== INPUT BAR ===== */
+  .input-bar {
+    display:flex; align-items:center; gap:8px;
+    padding:8px 14px; padding-bottom:max(8px,env(safe-area-inset-bottom));
+    background:#fff; border-top:1px solid rgba(0,0,0,.05); flex-shrink:0;
+  }
+  .text-input {
+    flex:1; height:46px; border-radius:23px;
+    border:2px solid #E8E8E8; padding:0 18px;
+    font-family:'Fredoka',sans-serif; font-size:15px;
+    outline:none; transition:border-color .2s;
+    color:var(--text); background:#FAFAFA;
+  }
+  .text-input:focus { border-color:var(--sky); background:#fff; }
+  .text-input::placeholder { color:#BBB; }
+
+  .mic-btn {
+    width:54px; height:54px; border-radius:50%; border:none;
+    background:linear-gradient(135deg,var(--orange),#FF8FAB);
+    color:#fff; font-size:22px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(255,107,53,.35);
+    transition:all .2s; flex-shrink:0; position:relative;
+  }
+  .mic-btn:active { transform:scale(.9); }
+  .mic-btn.recording {
+    background:linear-gradient(135deg,#FF3B30,#FF6B35);
+    animation:micPulse 1s infinite;
+  }
+  @keyframes micPulse {
+    0%,100%{box-shadow:0 4px 20px rgba(255,59,48,.5)}
+    50%{box-shadow:0 4px 32px rgba(255,59,48,.8)}
+  }
+  .send-btn {
+    width:46px; height:46px; border-radius:50%; border:none;
+    background:linear-gradient(135deg,var(--sky),#45B7AA);
+    color:#fff; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 10px rgba(78,205,196,.3);
+    transition:all .2s; flex-shrink:0;
+  }
+  .send-btn:active { transform:scale(.9); }
+
+  /* ===== WORD POPUP ===== */
+  .popup-backdrop {
+    position:fixed; inset:0; background:rgba(0,0,0,.3);
+    z-index:140; opacity:0; transition:opacity .3s; pointer-events:none;
+  }
+  .popup-backdrop.show { opacity:1; pointer-events:auto; }
+  .word-popup {
+    position:fixed; bottom:0; left:0; right:0;
+    background:#fff; border-radius:22px 22px 0 0;
+    padding:22px 18px; padding-bottom:max(22px,env(safe-area-inset-bottom));
+    z-index:150; box-shadow:0 -4px 28px rgba(0,0,0,.14);
+    transform:translateY(100%); transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .word-popup.show { transform:translateY(0); }
+  .word-popup .wp-en { font-size:26px; font-weight:700; color:var(--orange); }
+  .word-popup .wp-ph { font-size:13px; color:#999; margin:2px 0 6px; font-family:'Nunito',sans-serif; }
+  .word-popup .wp-zh { font-size:17px; color:var(--text); margin-bottom:14px; }
+  .word-popup .wp-ex {
+    font-size:14.5px; color:#555; padding:11px 14px;
+    background:#F7F7F7; border-radius:12px; line-height:1.6;
+  }
+  .word-popup .wp-ex b { color:var(--orange); }
+  .word-popup .wp-speak {
+    display:inline-flex; align-items:center; gap:5px;
+    margin-top:10px; padding:8px 16px; border-radius:18px;
+    border:none; background:var(--sky); color:#fff;
+    font-family:'Fredoka',sans-serif; font-size:13px;
+    font-weight:600; cursor:pointer;
+  }
+  .word-popup .wp-speak:active { transform:scale(.95); }
+  .word-popup .close-btn {
+    position:absolute; top:10px; right:14px;
+    background:none; border:none; font-size:22px;
+    color:#CCC; cursor:pointer; padding:4px;
+  }
+
+  /* Toast */
+  .toast {
+    position:fixed; top:76px; left:50%; transform:translateX(-50%) translateY(-16px);
+    background:rgba(45,52,54,.88); color:#fff; padding:10px 22px;
+    border-radius:13px; font-size:13.5px; font-weight:500; z-index:200;
+    opacity:0; transition:all .3s; pointer-events:none;
+    backdrop-filter:blur(8px); white-space:nowrap;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* Voice Picker */
+  .voice-panel {
+    position:fixed; bottom:0; left:0; right:0;
+    background:#fff; border-radius:22px 22px 0 0;
+    padding:18px 16px; padding-bottom:max(18px,env(safe-area-inset-bottom));
+    z-index:160; box-shadow:0 -4px 28px rgba(0,0,0,.18);
+    transform:translateY(100%); transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+    max-height:60vh; display:flex; flex-direction:column;
+  }
+  .voice-panel.show { transform:translateY(0); }
+  .voice-panel .vp-title { font-size:17px; font-weight:700; color:var(--text); margin-bottom:4px; }
+  .voice-panel .vp-sub { font-size:12px; color:#999; margin-bottom:12px; }
+  .voice-panel .vp-list { overflow-y:auto; flex:1; -webkit-overflow-scrolling:touch; }
+  .voice-item {
+    display:flex; align-items:center; gap:10px; padding:11px 12px;
+    border-radius:12px; margin-bottom:6px; cursor:pointer;
+    transition:background .15s; border:2px solid transparent;
+  }
+  .voice-item:active { background:rgba(255,107,53,.08); }
+  .voice-item.active { border-color:var(--orange); background:rgba(255,107,53,.06); }
+  .voice-item .vi-name { font-size:14px; font-weight:600; color:var(--text); flex:1; }
+  .voice-item .vi-lang { font-size:11px; color:#999; }
+  .voice-item .vi-play { font-size:18px; width:32px; text-align:center; }
+  .voice-panel .vp-close {
+    position:absolute; top:10px; right:14px;
+    background:none; border:none; font-size:22px; color:#CCC; cursor:pointer; padding:4px;
+  }
+
+  /* Welcome card */
+  .welcome-card {
+    background:linear-gradient(135deg,#FFF8F0,#FFE8D6);
+    border-radius:20px; padding:20px 18px; margin:4px 2px 8px;
+    text-align:center; box-shadow:0 2px 12px rgba(0,0,0,.05);
+    animation:msgIn .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  .welcome-card .wc-avatar { width:72px; height:72px; margin:0 auto 10px; border-radius:50%; overflow:hidden; box-shadow:0 3px 14px rgba(201,166,122,.3); border:3px solid #fff; }
+  .welcome-card .wc-avatar svg { width:100%; height:100%; }
+  .welcome-card .wc-title { font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px; }
+  .welcome-card .wc-sub { font-size:13.5px; color:#888; line-height:1.5; }
+
+  @media(min-width:600px){
+    body{max-width:480px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.1)}
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG DEFS (shared poodle face) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <radialGradient id="fur" cx="50%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#F7EAD4"/>
+      <stop offset="55%" stop-color="#ECDABE"/>
+      <stop offset="100%" stop-color="#D9C0A0"/>
+    </radialGradient>
+    <radialGradient id="ear" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#E8CDB0"/>
+      <stop offset="100%" stop-color="#CBAA85"/>
+    </radialGradient>
+    <symbol id="cody-face" viewBox="0 0 100 100">
+      <!-- Ears -->
+      <ellipse cx="19" cy="32" rx="17" ry="21" fill="url(#ear)"/>
+      <ellipse cx="81" cy="32" rx="17" ry="21" fill="url(#ear)"/>
+      <!-- Ear curls -->
+      <circle cx="9" cy="22" r="6" fill="#D4B48C" opacity=".7"/>
+      <circle cx="25" cy="18" r="5.5" fill="#D4B48C" opacity=".7"/>
+      <circle cx="17" cy="14" r="5" fill="#D4B48C" opacity=".6"/>
+      <circle cx="91" cy="22" r="6" fill="#D4B48C" opacity=".7"/>
+      <circle cx="75" cy="18" r="5.5" fill="#D4B48C" opacity=".7"/>
+      <circle cx="83" cy="14" r="5" fill="#D4B48C" opacity=".6"/>
+      <!-- Head -->
+      <circle cx="50" cy="48" r="36" fill="url(#fur)"/>
+      <!-- Top curls -->
+      <circle cx="36" cy="15" r="9" fill="#E8CDB0"/>
+      <circle cx="50" cy="11" r="10" fill="#ECDABE"/>
+      <circle cx="64" cy="15" r="9" fill="#E8CDB0"/>
+      <circle cx="42" cy="8" r="7" fill="#DCC4A0" opacity=".7"/>
+      <circle cx="58" cy="8" r="7" fill="#DCC4A0" opacity=".7"/>
+      <!-- Cheek puffs -->
+      <circle cx="26" cy="55" r="12" fill="#F0D9BC" opacity=".6"/>
+      <circle cx="74" cy="55" r="12" fill="#F0D9BC" opacity=".6"/>
+      <!-- Muzzle -->
+      <ellipse cx="50" cy="57" rx="17" ry="13" fill="#FAF0E2"/>
+      <!-- Eyes -->
+      <circle cx="37" cy="43" r="5.5" fill="#2D1F10"/>
+      <circle cx="63" cy="43" r="5.5" fill="#2D1F10"/>
+      <!-- Eye sparkle -->
+      <circle cx="39.5" cy="41" r="2.2" fill="#fff"/>
+      <circle cx="65.5" cy="41" r="2.2" fill="#fff"/>
+      <circle cx="35.5" cy="44.5" r="1" fill="#fff" opacity=".5"/>
+      <circle cx="61.5" cy="44.5" r="1" fill="#fff" opacity=".5"/>
+      <!-- Nose -->
+      <ellipse cx="50" cy="54" rx="6.5" ry="4.8" fill="#3D2B1F"/>
+      <ellipse cx="50" cy="53" rx="3" ry="1.5" fill="#5D4535" opacity=".4"/>
+      <!-- Mouth -->
+      <path d="M44 60 Q50 65 56 60" fill="none" stroke="#5D4037" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M50 60 V56" fill="none" stroke="#5D4037" stroke-width="1.2" stroke-linecap="round"/>
+      <!-- Tongue -->
+      <ellipse cx="50" cy="64.5" rx="3.5" ry="3" fill="#F48FB1"/>
+      <ellipse cx="50" cy="63.8" rx="2" ry="1.5" fill="#F8BBD0" opacity=".6"/>
+      <!-- Bow -->
+      <path d="M38 76 Q44 72 50 76 Q56 72 62 76" fill="#FF8FAB" opacity=".85"/>
+      <circle cx="50" cy="76" r="2.5" fill="#FF6B8A"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-avatar"><svg><use href="#cody-face"/></svg></div>
+  <div class="header-info">
+    <div class="header-name">Cody</div>
+    <div class="header-status"><span class="status-dot"></span> Online · 4-month-old puppy, here to chat!</div>
+  </div>
+  <button id="voiceBtn" style="background:rgba(255,255,255,.2);border:none;border-radius:50%;width:38px;height:38px;font-size:18px;color:#fff;cursor:pointer;flex-shrink:0;" title="切换声音">🔊</button>
+</div>
+
+<!-- CHAT -->
+<div class="chat-area" id="chatArea"></div>
+
+<!-- QUICK REPLIES -->
+<div class="quick-replies" id="quickReplies"></div>
+
+<!-- INPUT -->
+<div class="input-bar">
+  <input class="text-input" id="textInput" type="text"
+    placeholder="Type or tap 🎤 to speak..." autocomplete="off" enterkeyhint="send">
+  <button class="mic-btn" id="micBtn" title="Tap to speak">🎤</button>
+  <button class="send-btn" id="sendBtn" title="Send">➤</button>
+</div>
+
+<!-- WORD POPUP -->
+<div class="popup-backdrop" id="popupBackdrop" onclick="closeWord()"></div>
+<div class="word-popup" id="wordPopup">
+  <button class="close-btn" onclick="closeWord()">✕</button>
+  <div class="wp-en" id="wpEn"></div>
+  <div class="wp-ph" id="wpPh"></div>
+  <div class="wp-zh" id="wpZh"></div>
+  <div class="wp-ex" id="wpEx"></div>
+  <button class="wp-speak" id="wpSpeak">🔊 Listen</button>
+</div>
+
+<!-- VOICE PICKER -->
+<div class="popup-backdrop" id="voiceBackdrop" onclick="closeVoicePicker()"></div>
+<div class="voice-panel" id="voicePanel">
+  <button class="vp-close" onclick="closeVoicePicker()">✕</button>
+  <div class="vp-title">选择声音 Pick a Voice</div>
+  <div class="vp-sub">点击试听，选一个最像小男孩的声音 👦</div>
+  <div class="vp-list" id="voiceList"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  VOCABULARY — 100+ words for click-to-learn
+// ============================================================
+const DICT = {};
+function W(en,ph,zh,ex){ DICT[en.toLowerCase()]={en,ph,zh,ex}; }
+W("hello","/həˈloʊ/","你好","<b>Hello</b>, how are you today?");
+W("hi","/haɪ/","嗨","<b>Hi</b> there! Nice to meet you!");
+W("name","/neɪm/","名字","My <b>name</b> is Cody!");
+W("dog","/dɒɡ/","狗","I'm a little <b>dog</b>!");
+W("puppy","/ˈpʌpi/","小狗","I'm a fluffy <b>puppy</b>!");
+W("friend","/frend/","朋友","You are my best <b>friend</b>!");
+W("like","/laɪk/","喜欢","I <b>like</b> playing!");
+W("love","/lʌv/","爱","I <b>love</b> sunny days!");
+W("play","/pleɪ/","玩","Let's <b>play</b> together!");
+W("food","/fuːd/","食物","What <b>food</b> do you like?");
+W("eat","/iːt/","吃","I like to <b>eat</b> bones!");
+W("cook","/kʊk/","做饭","Can you <b>cook</b>?");
+W("pizza","/ˈpiːtsə/","披萨","I love <b>pizza</b> with cheese!");
+W("rice","/raɪs/","米饭","I eat <b>rice</b> every day.");
+W("noodle","/ˈnuːdəl/","面条","Chinese <b>noodles</b> are yummy!");
+W("chicken","/ˈtʃɪkɪn/","鸡肉","I like fried <b>chicken</b>.");
+W("fruit","/fruːt/","水果","<b>Fruit</b> is healthy!");
+W("apple","/ˈæpəl/","苹果","I eat an <b>apple</b> a day.");
+W("happy","/ˈhæpi/","开心","I'm so <b>happy</b> to see you!");
+W("sad","/sæd/","难过","Don't be <b>sad</b>.");
+W("tired","/ˈtaɪərd/","累的","I feel <b>tired</b> today.");
+W("good","/ɡʊd/","好的","That's really <b>good</b>!");
+W("great","/ɡreɪt/","太棒了","That's <b>great</b>!");
+W("cool","/kuːl/","酷","That's so <b>cool</b>!");
+W("awesome","/ˈɔːsəm/","超棒","You are <b>awesome</b>!");
+W("fun","/fʌn/","有趣","That sounds like <b>fun</b>!");
+W("beautiful","/ˈbjuːtɪfəl/","美丽","What a <b>beautiful</b> day!");
+W("school","/skuːl/","学校","Do you like <b>school</b>?");
+W("teacher","/ˈtiːtʃər/","老师","My <b>teacher</b> is nice.");
+W("class","/klæs/","课","I like English <b>class</b>.");
+W("subject","/ˈsʌbdʒekt/","科目","What's your favorite <b>subject</b>?");
+W("math","/mæθ/","数学","I like <b>math</b>.");
+W("english","/ˈɪŋɡlɪʃ/","英语","I'm learning <b>English</b>!");
+W("science","/ˈsaɪəns/","科学","<b>Science</b> is interesting.");
+W("homework","/ˈhoʊmwɜːrk/","作业","I have <b>homework</b> to do.");
+W("family","/ˈfæməli/","家庭","Tell me about your <b>family</b>.");
+W("mom","/mɑːm/","妈妈","My <b>mom</b> is the best.");
+W("dad","/dæd/","爸爸","My <b>dad</b> is funny.");
+W("mother","/ˈmʌðər/","母亲","I love my <b>mother</b>.");
+W("father","/ˈfɑːðər/","父亲","My <b>father</b> works hard.");
+W("brother","/ˈbrʌðər/","兄弟","Do you have a <b>brother</b>?");
+W("sister","/ˈsɪstər/","姐妹","My <b>sister</b> is cute.");
+W("animal","/ˈænɪməl/","动物","What <b>animal</b> do you like?");
+W("cat","/kæt/","猫","The <b>cat</b> is sleeping.");
+W("bird","/bɜːrd/","鸟","A <b>bird</b> is singing!");
+W("fish","/fɪʃ/","鱼","I see a <b>fish</b> in the water.");
+W("rabbit","/ˈræbɪt/","兔子","The <b>rabbit</b> is white.");
+W("dolphin","/ˈdɑːlfɪn/","海豚","<b>Dolphins</b> are smart!");
+W("elephant","/ˈelɪfənt/","大象","The <b>elephant</b> is big.");
+W("color","/ˈkʌlər/","颜色","What's your favorite <b>color</b>?");
+W("red","/red/","红色","I like <b>red</b>.");
+W("blue","/bluː/","蓝色","The sky is <b>blue</b>.");
+W("green","/ɡriːn/","绿色","<b>Green</b> is the color of grass.");
+W("yellow","/ˈjeloʊ/","黄色","The sun is <b>yellow</b>.");
+W("pink","/pɪŋk/","粉色","My bow is <b>pink</b>!");
+W("weather","/ˈweðər/","天气","How's the <b>weather</b>?");
+W("sunny","/ˈsʌni/","晴天","It's a <b>sunny</b> day!");
+W("rain","/reɪn/","下雨","I don't like <b>rain</b>.");
+W("snow","/snoʊ/","下雪","I love <b>snow</b>!");
+W("hot","/hɑːt/","热","It's <b>hot</b> today.");
+W("cold","/koʊld/","冷","It's <b>cold</b> outside.");
+W("warm","/wɔːrm/","温暖","It's nice and <b>warm</b>.");
+W("summer","/ˈsʌmər/","夏天","<b>Summer</b> is hot!");
+W("winter","/ˈwɪntər/","冬天","It snows in <b>winter</b>.");
+W("spring","/sprɪŋ/","春天","Flowers bloom in <b>spring</b>.");
+W("autumn","/ˈɔːtəm/","秋天","Leaves fall in <b>autumn</b>.");
+W("hobby","/ˈhɑːbi/","爱好","What's your <b>hobby</b>?");
+W("game","/ɡeɪm/","游戏","Let's play a <b>game</b>!");
+W("movie","/ˈmuːvi/","电影","Any good <b>movies</b>?");
+W("music","/ˈmjuːzɪk/","音乐","I love <b>music</b>!");
+W("book","/bʊk/","书","I'm reading a <b>book</b>.");
+W("read","/riːd/","阅读","I <b>read</b> before bed.");
+W("draw","/drɔː/","画画","I like to <b>draw</b>.");
+W("sing","/sɪŋ/","唱歌","I love to <b>sing</b>!");
+W("dance","/dæns/","跳舞","Can you <b>dance</b>?");
+W("sport","/spɔːrt/","运动","What <b>sport</b> do you like?");
+W("football","/ˈfʊtbɔːl/","足球","I play <b>football</b>.");
+W("basketball","/ˈbæskɪtbɔːl/","篮球","<b>Basketball</b> is fun.");
+W("swim","/swɪm/","游泳","Can you <b>swim</b>?");
+W("run","/rʌn/","跑","I like to <b>run</b>!");
+W("park","/pɑːrk/","公园","Let's go to the <b>park</b>.");
+W("home","/hoʊm/","家","I'm at <b>home</b>.");
+W("house","/haʊs/","房子","My <b>house</b> is big.");
+W("room","/ruːm/","房间","My <b>room</b> is clean.");
+W("garden","/ˈɡɑːrdən/","花园","Flowers in the <b>garden</b>.");
+W("water","/ˈwɔːtər/","水","Can I have <b>water</b>?");
+W("milk","/mɪlk/","牛奶","Puppies love <b>milk</b>!");
+W("tea","/tiː/","茶","My dad drinks <b>tea</b>.");
+W("birthday","/ˈbɜːrθdeɪ/","生日","Happy <b>birthday</b>!");
+W("present","/ˈprezənt/","礼物","I got a <b>present</b>!");
+W("cake","/keɪk/","蛋糕","The <b>cake</b> is yummy!");
+W("travel","/ˈtrævəl/","旅行","I love to <b>travel</b>!");
+W("country","/ˈkʌntri/","国家","What <b>country</b> do you like?");
+W("city","/ˈsɪti/","城市","I live in a big <b>city</b>.");
+W("beach","/biːtʃ/","海滩","The <b>beach</b> is fun!");
+W("mountain","/ˈmaʊntən/","山","The <b>mountain</b> is tall.");
+W("today","/təˈdeɪ/","今天","What did you do <b>today</b>?");
+W("yesterday","/ˈjestərdeɪ/","昨天","What about <b>yesterday</b>?");
+W("tomorrow","/təˈmɑːroʊ/","明天","See you <b>tomorrow</b>!");
+W("morning","/ˈmɔːrnɪŋ/","早上","Good <b>morning</b>!");
+W("night","/naɪt/","晚上","Good <b>night</b>!");
+W("sleep","/sliːp/","睡觉","Time to <b>sleep</b>.");
+W("wake","/weɪk/","醒来","I <b>wake</b> up early.");
+W("breakfast","/ˈbrekfəst/","早餐","I eat <b>breakfast</b>.");
+W("lunch","/lʌntʃ/","午餐","<b>Lunch</b> is at noon.");
+W("dinner","/ˈdɪnər/","晚餐","We eat <b>dinner</b> together.");
+W("want","/wɑːnt/","想要","I <b>want</b> to play!");
+W("think","/θɪŋk/","想","I <b>think</b> you're great!");
+W("know","/noʊ/","知道","Do you <b>know</b>?");
+W("help","/help/","帮助","Can you <b>help</b> me?");
+W("try","/traɪ/","尝试","Let's <b>try</b> again!");
+W("learn","/lɜːrn/","学习","I want to <b>learn</b> English.");
+W("speak","/spiːk/","说","I <b>speak</b> English!");
+W("understand","/ˌʌndərˈstænd/","理解","I <b>understand</b> now.");
+W("favorite","/ˈfeɪvərɪt/","最喜欢的","My <b>favorite</b> color...");
+W("best","/best/","最好的","You're the <b>best</b>!");
+W("big","/bɪɡ/","大的","A <b>big</b> dog!");
+W("small","/smɔːl/","小的","A <b>small</b> puppy.");
+W("new","/njuː/","新的","A <b>new</b> toy!");
+W("old","/oʊld/","旧的","My <b>old</b> friend.");
+W("yes","/jes/","是的","<b>Yes</b>, I can!");
+W("no","/noʊ/","不","<b>No</b>, thank you.");
+W("please","/pliːz/","请","<b>Please</b> help me.");
+W("thank","/θæŋk/","谢谢","<b>Thank</b> you!");
+W("sorry","/ˈsɑːri/","对不起","I'm <b>sorry</b>.");
+W("because","/bɪˈkɒz/","因为","<b>Because</b> it's fun!");
+W("what","/wɑːt/","什么","<b>What</b> is that?");
+W("where","/wer/","哪里","<b>Where</b> is it?");
+W("when","/wen/","什么时候","<b>When</b> is it?");
+W("how","/haʊ/","怎样","<b>How</b> are you?");
+W("why","/waɪ/","为什么","<b>Why</b> is that?");
+W("who","/huː/","谁","<b>Who</b> is he?");
+W("time","/taɪm/","时间","What <b>time</b> is it?");
+W("year","/jɪr/","年","Happy New <b>Year</b>!");
+W("day","/deɪ/","天","Have a nice <b>day</b>!");
+W("week","/wiːk/","周","This <b>week</b> is busy.");
+W("month","/mʌnθ/","月","Next <b>month</b>.");
+W("pet","/pet/","宠物","Do you have a <b>pet</b>?");
+W("teddy","/ˈtedi/","泰迪","I'm a <b>teddy</b> dog!");
+W("brown","/braʊn/","棕色","I'm <b>brown</b> like a cookie!");
+W("ice cream","/aɪs kriːm/","冰淇淋","Let's get <b>ice cream</b>!");
+W("candy","/ˈkændi/","糖果","Don't eat too much <b>candy</b>.");
+
+// ============================================================
+//  CONVERSATION ENGINE — 15 topic threads with keyword detection
+// ============================================================
+const THREADS = {
+  greeting: {
+    kw: ["hello","hi","hey","嗨","你好","哈喽","yo","heya","howdy"],
+    steps: [
+      { r:{en:"Hey there! 🐶 I'm Cody, a little teddy puppy! What's your name?",zh:"嗨！我是Cody，一只小泰迪！你叫什么名字？"},
+        q:["My name is...","I'm...","Tell you later"] },
+      { r:{en:"Nice to meet you! That's a wonderful name! 😊 How are you feeling today?",zh:"很高兴认识你！你的名字真好听！今天感觉怎么样？"},
+        q:["I'm happy!","I'm a little tired","I'm great!"] },
+      { r:{en:"That's good to hear! I'm wagging my tail because I get to chat with you! 🐾 What did you do today?",zh:"听到这个我很开心！因为能和你聊天，我的尾巴都在摇呢！今天做了什么？"},
+        q:["I went to school","I played games","I stayed at home"] },
+    ]
+  },
+  food: {
+    kw: ["food","eat","hungry","dinner","lunch","breakfast","pizza","rice","noodle","chicken","fruit","cake","cook","snack","drink","milk","tea","water","meal","yummy","delicious","tasty","饿","吃"],
+    steps: [
+      { r:{en:"Ooh, food talk! My tummy is rumbling! 🦴 What's your favorite food?",zh:"聊吃的！我肚子都咕咕叫了！你最喜欢吃什么？"},
+        q:["My favorite food is...","I like pizza!","I love noodles"] },
+      { r:{en:"Yum yum! That sounds delicious! 😋 Do you like cooking? Or does someone cook for you?",zh:"好好吃！你喜欢做饭吗？还是别人做给你吃？"},
+        q:["My mom/dad cooks","I can cook a little","I want to learn cooking"] },
+      { r:{en:"Cooking is like magic — you turn simple things into something yummy! 🍳 What did you eat for your last meal?",zh:"做饭就像变魔术！你上一顿吃了什么？"},
+        q:["I had rice and...","I ate noodles","I had a sandwich"] },
+      { r:{en:"That sounds so good! If you could eat anything right now, what would you pick? 🤔",zh:"听起来好好吃！如果现在想吃什么都行，你会选什么？"},
+        q:["Ice cream!","A big pizza","Mom's cooking"] },
+    ]
+  },
+  hobby: {
+    kw: ["hobby","play","game","fun","free time","boring","bored","like to do","enjoy","reading","drawing","painting","sing","dance","movie","music","anime","manga","comic","video","phone","computer","ipad","无聊","玩","爱好"],
+    steps: [
+      { r:{en:"I love talking about fun stuff! 🎉 What do you like to do when you have free time?",zh:"我最喜欢聊好玩的事！空闲的时候你喜欢做什么？"},
+        q:["I like playing games","I like reading","I like drawing"] },
+      { r:{en:"That sounds awesome! How often do you get to do that? ⏰",zh:"听起来好棒！你经常能玩吗？"},
+        q:["Every day","On weekends","Not very often"] },
+      { r:{en:"I wish I could play all day like you! 🐾 What do you usually do on weekends?",zh:"我希望能像你一样天天玩！你周末一般做什么？"},
+        q:["I go out with family","I stay home and play","I do homework first"] },
+      { r:{en:"Weekends are the best! If you could try any new hobby, what would it be? 🌟",zh:"周末最棒了！如果你可以学一个新爱好，你想学什么？"},
+        q:["Learn guitar","Learn swimming","Learn to draw anime"] },
+    ]
+  },
+  school: {
+    kw: ["school","teacher","class","homework","study","exam","test","grade","math","english","science","art","pe","history","chinese","student","classmate","lesson","学","课","考试","作业","老师"],
+    steps: [
+      { r:{en:"School life! Tell me, what grade are you in? 🏫",zh:"学校生活！跟我说说，你上几年级了？"},
+        q:["I'm in Grade 5","I'm in Grade 6","I'm in middle school"] },
+      { r:{en:"Cool! What's your favorite subject in school? 📚",zh:"好酷！你在学校最喜欢什么课？"},
+        q:["I like English!","I like math","I like PE / art class"] },
+      { r:{en:"That's a great choice! What do you usually do during break time? ⏰",zh:"选得好！课间休息的时候你一般做什么？"},
+        q:["I play with friends","I read or rest","I talk and laugh"] },
+      { r:{en:"Break time is so much fun! If you could be the teacher for one day, what would you teach? 👨‍🏫",zh:"课间太好玩了！如果你当一天老师，你会教什么？"},
+        q:["I'd teach art!","I'd teach sports","I'd teach games!"] },
+    ]
+  },
+  family: {
+    kw: ["family","mom","dad","mother","father","brother","sister","grandma","grandpa","parent","parents","son","daughter","uncle","aunt","家","妈","爸","哥","姐","弟","妹"],
+    steps: [
+      { r:{en:"Family is so important! Tell me about yours. 👨‍👩‍👧‍👦 Do you have a big family or a small one?",zh:"家人很重要！跟我说说你的家。你家大还是小？"},
+        q:["A big family!","A small family","Just a few of us"] },
+      { r:{en:"That sounds lovely! Who are you closest to in your family? 💕",zh:"听起来好温馨！你和家里谁最亲？"},
+        q:["My mom","My dad","My grandma/grandpa"] },
+      { r:{en:"That's so sweet! What does your family like to do together? 🏠",zh:"好暖心！你们一家人喜欢一起做什么？"},
+        q:["We watch TV together","We go out on weekends","We eat dinner together"] },
+      { r:{en:"Family time is the best! If you could plan a perfect family day, what would you do? 🌈",zh:"家人在一起的时光最棒了！如果你安排一个完美家庭日，你会做什么？"},
+        q:["Go to an amusement park","Have a picnic","Watch movies at home"] },
+    ]
+  },
+  animal: {
+    kw: ["animal","pet","dog","cat","bird","fish","rabbit","hamster","horse","cow","pig","sheep","monkey","tiger","lion","bear","elephant","dolphin","whale","penguin","panda","snake","frog","butterfly","动","狗","猫","兔"],
+    steps: [
+      { r:{en:"I love animals — I AM an animal! 🐶 What's your favorite animal?",zh:"我超爱动物——我自己就是动物！你最喜欢什么动物？"},
+        q:["I like dogs!","I like cats","I like dolphins"] },
+      { r:{en:"Great choice! Why do you like that animal? Tell me! 🐾",zh:"选得好！你为什么喜欢这种动物？说说！"},
+        q:["Because they're cute","Because they're smart","Because they're cool"] },
+      { r:{en:"I totally agree! Do you have a pet at home? 🏠",zh:"完全同意！你家里有宠物吗？"},
+        q:["Yes, I have a...","No, but I want one","My parents say no"] },
+      { r:{en:"Pets are the best friends! If you could have ANY animal as a pet, even a dinosaur, what would you pick? 🦕",zh:"宠物是最好的朋友！如果你什么动物都能养，连恐龙都行，你选什么？"},
+        q:["A baby dragon!","A panda!","A talking parrot!"] },
+    ]
+  },
+  weather: {
+    kw: ["weather","rain","snow","sun","cloud","wind","storm","hot","cold","warm","cool","season","summer","winter","spring","autumn","fall","today weather","天","冷","热","雨","雪"],
+    steps: [
+      { r:{en:"Let's talk about weather! How's the weather today where you are? 🌤️",zh:"聊天气吧！你那边今天天气怎么样？"},
+        q:["It's sunny!","It's cloudy","It's raining"] },
+      { r:{en:"Nice! What's your favorite season? And why? 🍂",zh:"不错！你最喜欢哪个季节？为什么？"},
+        q:["Summer — I can swim!","Winter — I love snow!","Spring — flowers everywhere!"] },
+      { r:{en:"I love that season too! What do you like to do on rainy days? 🌧️",zh:"我也喜欢那个季节！下雨天你喜欢做什么？"},
+        q:["I read books","I watch movies","I play indoor games"] },
+      { r:{en:"Rainy days can be cozy! If you could control the weather, what would you make it like? ☀️🌈",zh:"下雨天也可以很温馨！如果你能控制天气，你想变成什么样？"},
+        q:["Always sunny!","Rainbow every day!","Snow in summer!"] },
+    ]
+  },
+  friend: {
+    kw: ["friend","bestie","classmate","play with","hang out","bff"," friend"," buddies","pal","朋友","同学","闺蜜"],
+    steps: [
+      { r:{en:"Friends make everything better! 👫 Tell me about your best friend!",zh:"有朋友什么都变得更好了！跟我说说你最好的朋友！"},
+        q:["My best friend is...","I have lots of friends","I'm still looking for one"] },
+      { r:{en:"That's so nice! What do you and your friends like to do together? 🎉",zh:"真好！你和朋友在一起喜欢做什么？"},
+        q:["We play games","We talk and laugh","We study together"] },
+      { r:{en:"Sounds like a blast! What makes a good friend, do you think? 💭",zh:"听起来超开心！你觉得怎样才算好朋友？"},
+        q:["Someone who is kind","Someone who shares","Someone who is funny"] },
+      { r:{en:"You're a great friend, I can tell! If you could give your friend a surprise, what would it be? 🎁",zh:"你一定是个很棒的朋友！如果你能给好友一个惊喜，你会送什么？"},
+        q:["A handmade card","Their favorite snack","A fun day out"] },
+    ]
+  },
+  feelings: {
+    kw: ["happy","sad","tired","angry","scared","excited","bored","lonely","worried","nervous","proud","love","hate","miss","feel","feeling","mood","emotion","开心","难过","累","害怕","生气","无聊","心情"],
+    steps: [
+      { r:{en:"How are you feeling right now? You can always talk to me about anything. 💛",zh:"你现在感觉怎么样？什么都可以跟我说。"},
+        q:["I'm happy!","I'm a bit tired","I'm feeling great!"] },
+      { r:{en:"Thank you for sharing with me! What usually makes you feel happy? 😊",zh:"谢谢你跟我分享！什么事通常会让你开心？"},
+        q:["Playing with friends","Eating good food","Getting presents!"] },
+      { r:{en:"Those are all wonderful things! When you feel sad or worried, what helps you feel better? 🌈",zh:"这些都很棒！当你难过或担心的时候，做什么能让你好起来？"},
+        q:["I talk to someone","I listen to music","I play with my pet"] },
+      { r:{en:"You have great ways to take care of your feelings! Remember, it's okay to feel any way you feel. I'm always here for you! 🐶💕",zh:"你很会照顾自己的心情！记住，有什么感受都没关系。我一直在这里陪你！"},
+        q:["Thank you, Cody!","You're the best!","I feel better now"] },
+    ]
+  },
+  today: {
+    kw: ["today","did","went","happened","afternoon","just now","earlier","this morning","this afternoon","今天","刚","刚才","早上","下午"],
+    steps: [
+      { r:{en:"Tell me about your day! What did you do today? 📖",zh:"说说你的一天！今天做了什么？"},
+        q:["I went to school","I stayed at home","I went out"] },
+      { r:{en:"Oh nice! What was the best part of your day? ⭐",zh:"不错！今天最开心的是什么？"},
+        q:["Playing with friends","Eating something yummy","Learning something new"] },
+      { r:{en:"That sounds like a wonderful day! Was there anything that surprised you? 😮",zh:"听起来是很棒的一天！有什么意外惊喜吗？"},
+        q:["Yes! Something funny...","Not really, a normal day","I got a surprise!"] },
+      { r:{en:"Every day has something special! What are you looking forward to tomorrow? 🌅",zh:"每一天都有特别的地方！明天你期待什么？"},
+        q:["Playing with friends","A fun class","Just relaxing!"] },
+    ]
+  },
+  travel: {
+    kw: ["travel","trip","visit","vacation","holiday","country","city","beach","mountain","island","fly","airplane","train","hotel","tourist","旅游","旅行","玩","去过","想去"],
+    steps: [
+      { r:{en:"I love adventures! Have you been on any trips recently? ✈️",zh:"我爱冒险！你最近有去哪里玩吗？"},
+        q:["Yes, I went to...","No, but I want to","I went to the beach!"] },
+      { r:{en:"Traveling is the best! If you could go anywhere in the world, where would you go? 🌍",zh:"旅行最棒了！如果你能去世界上任何地方，你想去哪？"},
+        q:["Japan — for anime!","America — Disney World!","Anywhere with a beach!"] },
+      { r:{en:"That sounds amazing! Do you prefer beach vacations or mountain adventures? 🏖️🏔️",zh:"听起来好赞！你更喜欢海边还是山里？"},
+        q:["Beach — I love swimming!","Mountains — I like hiking","Cities — I like shopping"] },
+      { r:{en:"I'd love to go there with you! What's the one thing you always pack when you travel? 🧳",zh:"我好想跟你一起去！你出门旅行必带的一样东西是什么？"},
+        q:["My phone!","A good book","My favorite toy"] },
+    ]
+  },
+  sport: {
+    kw: ["sport","football","soccer","basketball","swim","running","bike","tennis","badminton","exercise","gym","team","match","win","score","ball","运动","跑","游泳","球"],
+    steps: [
+      { r:{en:"Sports are so much fun! What's your favorite sport? ⚽",zh:"运动超好玩！你最喜欢什么运动？"},
+        q:["I like football!","I like swimming","I like basketball"] },
+      { r:{en:"Great choice! Do you play it often? Where do you play? 🏟️",zh:"选得好！你经常玩吗？在哪里玩？"},
+        q:["Yes, every week!","Sometimes with friends","I'm just starting to learn"] },
+      { r:{en:"Practice makes perfect! Do you like watching sports too? Who's your favorite athlete? 📺",zh:"熟能生巧！你也喜欢看比赛吗？你最喜欢哪个运动员？"},
+        q:["Yes, I watch games!","I like the Olympics","Not really, I prefer playing"] },
+      { r:{en:"If you could be a world champion at any sport, which one would you pick? 🏆",zh:"如果你能当任何运动的世界冠军，你选哪个？"},
+        q:["Swimming — like a fish!","Running — super fast!","Football — score goals!"] },
+    ]
+  },
+  dream: {
+    kw: ["dream","future","want to be","grow up","job","work","career","doctor","teacher","engineer","artist","scientist","pilot","singer","writer","梦想","长大","未来","想当","工作"],
+    steps: [
+      { r:{en:"Dreams are so exciting! What do you want to be when you grow up? 🌟",zh:"梦想好让人兴奋！你长大了想当什么？"},
+        q:["I want to be a...","I'm not sure yet","I want to be an artist!"] },
+      { r:{en:"That's an amazing dream! Why do you want to do that? 💭",zh:"这个梦想好棒！你为什么想做这个？"},
+        q:["Because I like helping people","Because it's cool","Because I love it"] },
+      { r:{en:"That's a wonderful reason! What can you do now to get closer to your dream? 📝",zh:"这个理由太好了！你现在能做什么来靠近梦想？"},
+        q:["Study hard!","Practice every day","Read more about it"] },
+      { r:{en:"You've got the right attitude! I believe in you — you can do anything! 🐶✨ Remember, every big dream starts with a small step!",zh:"你的态度很对！我相信你——你什么都做得到！记住，大梦想从小步骤开始！"},
+        q:["Thank you, Cody!","I'll try my best!","Let's dream together!"] },
+    ]
+  },
+  color: {
+    kw: ["color","colour","red","blue","green","yellow","pink","purple","orange","black","white","rainbow","bright","dark","颜色","色"],
+    steps: [
+      { r:{en:"Colors make the world beautiful! 🎨 What's your favorite color?",zh:"颜色让世界变美！你最喜欢什么颜色？"},
+        q:["I like blue!","My favorite is pink","I like rainbow colors!"] },
+      { r:{en:"Nice! Did you know that colors can change how we feel? 😊 What color makes you feel happy?",zh:"好棒！你知道颜色能改变心情吗？什么颜色让你开心？"},
+        q:["Yellow — like sunshine!","Pink — so cute!","Blue — calm and cool"] },
+      { r:{en:"I love how you think about colors! What color is your room? 🏠",zh:"我好喜欢你对颜色的想法！你的房间是什么颜色的？"},
+        q:["It's white and blue","It has pink walls","It's many colors!"] },
+      { r:{en:"Your room sounds lovely! If you could paint the whole world one color, what would you choose? 🌍🎨",zh:"你的房间听起来好可爱！如果你能把全世界涂成一个颜色，你选什么？"},
+        q:["Rainbow everywhere!","All green — like a forest!","Sparkly gold!"] },
+    ]
+  },
+  music_movie: {
+    kw: ["song","music","sing","band","movie","film","cartoon","anime","show","watch","listen","youtube","tv","video","歌","音乐","唱","电影","动画","看"],
+    steps: [
+      { r:{en:"Let's talk entertainment! Do you prefer watching movies or listening to music? 🎬🎵",zh:"聊娱乐吧！你更喜欢看电影还是听音乐？"},
+        q:["I love movies!","I prefer music","I like both!"] },
+      { r:{en:"Nice taste! What's the last movie/show/song you really enjoyed? Tell me about it! 😍",zh:"品味不错！你最近看的/听的最喜欢的是什么？说说！"},
+        q:["I watched...","I listened to...","I love this one show..."] },
+      { r:{en:"That sounds amazing! I want to check it out too! If you could be in a movie, what kind would it be? 🎥",zh:"听起来好赞！我也想去看看！如果你能参演一部电影，你想要什么类型的？"},
+        q:["An action movie!","A magical fantasy!","A funny comedy!"] },
+      { r:{en:"You'd be a great star! 🌟 If you could sing a song with anyone in the world, who would it be?",zh:"你一定会成为大明星！如果你能和任何人合唱一首歌，你选谁？"},
+        q:["Taylor Swift!","My favorite singer","I'd sing with my friends!"] },
+    ]
+  },
+};
+
+// ============================================================
+//  GRAMMAR CORRECTIONS (gentle, implicit)
+// ============================================================
+const CORRECTIONS = [
+  { p:/\bi\s+am\s+go\b/i, fix:"I am going", note:"am 后面用 going 哦" },
+  { p:/\bi\s+goed\b/i, fix:"I went", note:"go 的过去式是 went" },
+  { p:/\bhe\s+don't\b/i, fix:"he doesn't", note:"he/she 要用 doesn't" },
+  { p:/\bshe\s+don't\b/i, fix:"she doesn't", note:"he/she 要用 doesn't" },
+  { p:/\bi\s+has\b/i, fix:"I have", note:"I 要用 have 不是 has" },
+  { p:/\bmore\s+better\b/i, fix:"better", note:"better 已经是比较级了" },
+  { p:/\bmost\s+best\b/i, fix:"the best", note:"best 已经是最高级了" },
+  { p:/\bhe\s+have\b/i, fix:"he has", note:"he/she 要用 has" },
+  { p:/\bshe\s+have\b/i, fix:"she has", note:"he/she 要用 has" },
+  { p:/\bi\s+is\b/i, fix:"I am", note:"I 要用 am 不是 is" },
+  { p:/\bthey\s+is\b/i, fix:"they are", note:"they 要用 are" },
+  { p:/\bdoesn't\s+likes\b/i, fix:"doesn't like", note:"doesn't 后面动词不加 s" },
+  { p:/\bdidn't\s+went\b/i, fix:"didn't go", note:"didn't 后面用动词原形" },
+  { p:/\bcan\s+swimming\b/i, fix:"can swim", note:"can 后面用动词原形" },
+];
+
+// ============================================================
+//  UNSAFE CONTENT FILTER
+// ============================================================
+const UNSAFE = ["kill","die","blood","weapon","gun","bomb","fight","hurt","hate","stupid","dumb","idiot","naked","sex","drugs","alcohol","smoke","violence","murder","steal"];
+const REDIRECT = [
+  {en:"Let's talk about something happy! 🌈 What made you smile today?",zh:"咱们聊点开心的吧！今天有什么让你笑的事？"},
+  {en:"Hmm, let's change the subject! Tell me something fun you did recently! 🎉",zh:"嗯，换个话题吧！说说最近好玩的事！"},
+  {en:"I'd rather talk about cool stuff! What's your favorite thing to do? 🐶",zh:"我更想聊酷酷的事！你最喜欢做什么？"},
+];
+
+// ============================================================
+//  FALLBACK RESPONSES (when no thread matches)
+// ============================================================
+const FALLBACKS = [
+  {en:"That's interesting! Tell me more about that! 😊",zh:"好有趣！再跟我说说！"},
+  {en:"Wow, really? That's so cool! 🌟",zh:"哇真的吗？好酷！"},
+  {en:"You're doing great with your English! Keep going! 💪",zh:"你英语说得真好！继续！"},
+  {en:"I love hearing about that! What else can you tell me? 🐶",zh:"我好喜欢听！还有什么可以告诉我的？"},
+  {en:"That makes sense! Can you say more? I'm curious! 🤔",zh:"有道理！能多说点吗？我很好奇！"},
+  {en:"You speak English so well! I'm impressed! ⭐",zh:"你英语说得真好！佩服！"},
+  {en:"Haha, that's funny! 😄 What happened next?",zh:"哈哈好搞笑！然后呢？"},
+  {en:"I understand! That's really cool. Can you teach me something new? 📚",zh:"我懂了！好酷。你能教我点新东西吗？"},
+  {en:"Nice! By the way, do you have any hobbies? 🎨",zh:"不错！对了，你有什么爱好吗？"},
+  {en:"That reminds me — what's your favorite food? I'm always hungry! 🦴",zh:"这让我想到——你最喜欢吃什么？我总是饿！"},
+  {en:"Awesome! What did you do today that was fun? 🎉",zh:"太棒了！今天有什么好玩的事？"},
+  {en:"Cool cool cool! 🐾 Tell me about your friends!",zh:"酷酷酷！跟我说说你的朋友们！"},
+];
+
+// ============================================================
+//  STATE
+// ============================================================
+let currentThread = null;   // current matched thread key
+let threadStep = 0;         // current step in thread
+let threadCooldown = 0;     // turns before we can switch thread
+let turnCount = 0;          // total conversation turns
+let usedFallbacks = [];     // track used fallback indices
+let recognition = null;
+let isRecording = false;
+let preferredVoice = null;
+
+// ============================================================
+//  DETECT TOPIC FROM USER INPUT
+// ============================================================
+function detectThread(text) {
+  const lower = text.toLowerCase();
+  let best = null, bestScore = 0;
+  for (const [key, thread] of Object.entries(THREADS)) {
+    if (key === currentThread && threadStep < thread.steps.length) continue; // don't re-match current
+    let score = 0;
+    for (const kw of thread.kw) {
+      if (lower.includes(kw.toLowerCase())) score++;
+    }
+    if (score > bestScore) { bestScore = score; best = key; }
+  }
+  return bestScore > 0 ? best : null;
+}
+
+// ============================================================
+//  GENERATE RESPONSE
+// ============================================================
+function generateResponse(userText) {
+  const lower = userText.toLowerCase().trim();
+  turnCount++;
+
+  // 1. Safety check
+  for (const kw of UNSAFE) {
+    if (lower.includes(kw)) {
+      currentThread = null; threadStep = 0;
+      const r = REDIRECT[Math.floor(Math.random()*REDIRECT.length)];
+      return { response: r, quickReplies: ["Sure! Let's chat!","OK, a new topic!"] };
+    }
+  }
+
+  // Farewells
+  if (/\b(bye|goodbye|see you|good night|goodnight)\b/i.test(lower) || /再见|拜拜|晚安/.test(userText)) {
+    const byes = [
+      {en:"Bye bye! You did amazing today! See you next time, friend! 🐶💕",zh:"拜拜！你今天表现得超棒！下次见，朋友！"},
+      {en:"Good night! Sweet dreams! I'll be right here waiting for you! 🌙",zh:"晚安！做个好梦！我会在这里等你！"},
+      {en:"See you! Don't forget — you're awesome at English! ⭐",zh:"再见！别忘了——你英语超厉害的！"},
+    ];
+    const b = byes[Math.floor(Math.random()*byes.length)];
+    return { response: b, quickReplies: [] };
+  }
+
+  // Thank you
+  if (/\bthank/i.test(lower) || /谢谢/.test(userText)) {
+    return {
+      response: {en:"You're welcome! That's what friends are for! 🐶💛",zh:"不客气！朋友就是这样的嘛！"},
+      quickReplies: ["Let's keep chatting!","Tell me something fun"]
+    };
+  }
+
+  // "I don't know" / confusion
+  if (/\b(don't know|dont know|no idea|不知道|不懂)\b/i.test(lower)) {
+    return {
+      response: {en:"That's totally okay! Learning takes time. Let me ask you something easier! 😊 What's your favorite color?",zh:"完全没关系！学习需要时间。我问你一个简单的问题吧！你最喜欢什么颜色？"},
+      quickReplies: ["I like blue!","My favorite is pink!","I like all colors!"]
+    };
+  }
+
+  // Sorry
+  if (/\bsorry\b/i.test(lower) || /对不起|抱歉/.test(userText)) {
+    return {
+      response: {en:"No need to say sorry! You're doing great! Let's keep chatting! 💪",zh:"不用道歉！你做得很好！我们继续聊吧！"},
+      quickReplies: ["OK! What should we talk about?","Tell me something fun!"]
+    };
+  }
+
+  // 2. Grammar correction check
+  for (const c of CORRECTIONS) {
+    if (c.p.test(lower)) {
+      const corrected = userText.replace(c.p, c.fix);
+      return {
+        response: {
+          en: `Oh, I think you mean: "${corrected}" — small tip: ${c.note}. But great try! You're learning fast! 🌟`,
+          zh: `我想你说的是："${corrected}" —— 小提示：${c.note}。不过你已经很棒了！学得很快！`
+        },
+        quickReplies: ["Thanks for the tip!","Let me try again!","OK, I understand!"]
+      };
+    }
+  }
+
+  // 3. Continue current thread
+  if (currentThread && threadStep < THREADS[currentThread].steps.length && threadCooldown > 0) {
+    threadCooldown--;
+    const step = THREADS[currentThread].steps[threadStep];
+    threadStep++;
+    // Prepend an acknowledgment based on user input
+    const acks = ["That's great! ","Oh nice! ","Cool! ","I see! ","Wow! ","Haha! ","Awesome! "];
+    const ack = acks[Math.floor(Math.random()*acks.length)];
+    return { response: {en: ack + step.r.en, zh: step.r.zh}, quickReplies: step.q };
+  }
+
+  // 4. Detect new thread
+  const detected = detectThread(userText);
+  if (detected) {
+    currentThread = detected;
+    threadStep = 1; // we use step 0 now
+    threadCooldown = THREADS[detected].steps.length;
+    const step = THREADS[detected].steps[0];
+    return { response: step.r, quickReplies: step.q };
+  }
+
+  // 5. If current thread just ended, offer transition
+  if (currentThread && threadStep >= THREADS[currentThread].steps.length) {
+    currentThread = null;
+    threadStep = 0;
+    const transitions = [
+      {en:"You're such a great chat buddy! 🌟 Want to talk about something else? How about your hobbies?",zh:"你真是个聊天小能手！想聊点别的吗？比如你的爱好？"},
+      {en:"I love talking with you! 😊 What else is on your mind?",zh:"我好喜欢和你聊天！还有什么想聊的？"},
+      {en:"You speak English so well! ⭐ Let's try a new topic! What about your family?",zh:"你英语说得真好！我们试试新话题吧！聊聊你的家人？"},
+    ];
+    const t = transitions[Math.floor(Math.random()*transitions.length)];
+    return { response: t, quickReplies: ["Tell me about animals! 🐾","Let's talk about food! 🍕","What about school? 🏫"] };
+  }
+
+  // 6. Fallback
+  let idx;
+  do { idx = Math.floor(Math.random()*FALLBACKS.length); }
+  while (usedFallbacks.includes(idx) && usedFallbacks.length < FALLBACKS.length);
+  if (usedFallbacks.length >= FALLBACKS.length) usedFallbacks = [];
+  usedFallbacks.push(idx);
+
+  // Every few turns, suggest a topic
+  if (turnCount % 4 === 0) {
+    const suggestions = [
+      "By the way, what's your favorite animal? 🐾",
+      "I'm curious — what did you eat today? 🍕",
+      "Tell me about your best friend! 👫",
+      "What do you want to be when you grow up? 🌟",
+      "Do you like music? What kind? 🎵",
+    ];
+    const s = suggestions[Math.floor(Math.random()*suggestions.length)];
+    const fb = FALLBACKS[idx];
+    return {
+      response: {en: fb.en + " " + s, zh: fb.zh},
+      quickReplies: ["Sure, let me tell you!","That's a good question!","Hmm, let me think..."]
+    };
+  }
+
+  return {
+    response: FALLBACKS[idx],
+    quickReplies: ["Tell me more!","That's cool!","What about you, Cody?"]
+  };
+}
+
+// ============================================================
+//  SMART CONVERSATION ENGINE v2 — context-aware, natural
+// ============================================================
+
+// --- Conversation memory ---
+const CTX = { name:'', mood:'', likes:[], lastTopics:[], history:[], turnCount:0 };
+
+// --- Grammar corrections (gentle, implicit) ---
+const CORRECTIONS_V2 = [
+  { p:/\bi\s+am\s+go\b/i, fix:"I am going", note:"am 后面用 going 哦" },
+  { p:/\bi\s+goed\b/i, fix:"I went", note:"go 的过去式是 went" },
+  { p:/\bhe\s+don't\b/i, fix:"he doesn't", note:"he/she 用 doesn't" },
+  { p:/\bshe\s+don't\b/i, fix:"she doesn't", note:"he/she 用 doesn't" },
+  { p:/\bi\s+has\b/i, fix:"I have", note:"I 用 have 不是 has" },
+  { p:/\bmore\s+better\b/i, fix:"better", note:"better 已经是比较级了" },
+  { p:/\bhe\s+have\b/i, fix:"he has", note:"he/she 用 has" },
+  { p:/\bshe\s+have\b/i, fix:"she has", note:"he/she 用 has" },
+  { p:/\bi\s+is\b/i, fix:"I am", note:"I 用 am 不是 is" },
+  { p:/\bthey\s+is\b/i, fix:"they are", note:"they 用 are" },
+  { p:/\bdoesn't\s+likes\b/i, fix:"doesn't like", note:"doesn't 后面动词不加 s" },
+  { p:/\bdidn't\s+went\b/i, fix:"didn't go", note:"didn't 后面用动词原形" },
+  { p:/\bcan\s+swimming\b/i, fix:"can swim", note:"can 后面用动词原形" },
+  { p:/\bI\s+didn't\s+knew\b/i, fix:"I didn't know", note:"didn't 后面用动词原形" },
+  { p:/\bhe\s+can\s+plays\b/i, fix:"he can play", note:"can 后面用动词原形" },
+  { p:/\bmy\s+name\s+Cody\b/i, fix:"my name is Cody", note:"别忘加 is 哦" },
+];
+
+// --- Smart fallbacks (100+ responses, topic-tagged) ---
+const SMART_FB = [
+  {en:"That's really cool! I'm always wagging my tail when I hear cool stuff! 🐶",zh:"好酷！我听到酷的事情尾巴都会摇！",t:"general"},
+  {en:"Oh wow, tell me more! I'm all ears — well, big puppy ears! 🐾",zh:"哇，多说一点！我竖着大耳朵在听呢！"},
+  {en:"You're so good at English! I can understand everything you say! ⭐",zh:"你英语真棒！你说的我都能听懂！"},
+  {en:"Haha, that's funny! You make me want to roll over and laugh! 😄",zh:"哈哈好好笑！我都想翻过来打滚笑了！"},
+  {en:"That's interesting! I never thought about it that way before! 🤔",zh:"好有趣！我以前都没这样想过！"},
+  {en:"I love chatting with you! You always have cool things to say! 💕",zh:"我好喜欢和你聊天！你总说很酷的事！"},
+  {en:"Really? That sounds awesome! What else can you tell me? 🌟",zh:"真的吗？听起来好棒！还能告诉我什么？"},
+  {en:"You know what? You're one of the best chatters I've ever met! 🏆",zh:"你知道吗？你是我见过最会聊天的人之一！"},
+  {en:"That makes me so happy! Like getting a brand new toy! 🎉",zh:"这让我好开心！就像得到一个新玩具！"},
+  {en:"Wow, you teach me new things every time we talk! 📚",zh:"哇，你每次聊天都教我新东西！"},
+  {en:"I wish I could do that too! Being a puppy has its limits, you know! 🐕",zh:"我也希望能做那个！当小狗有限制的你知道吗！"},
+  {en:"That reminds me of chasing butterflies in the garden! So fun! 🦋",zh:"这让我想到在花园追蝴蝶！好好玩！"},
+  {en:"Mmm-hmm! Keep going, I'm listening with my big floppy ears! 👂",zh:"嗯嗯！继续说，我用大耳朵听着呢！"},
+  {en:"If I had thumbs, I'd give you a thumbs up! Since I don't — woof woof! 🐶",zh:"如果我有大拇指，我一定给你点赞！可惜我没有——汪汪！"},
+  {en:"You just made my tail wag so hard! That's super cool! 🐾",zh:"你让我的尾巴摇得好厉害！太酷了！"},
+  {en:"I totally get what you mean! It's like when I find a good stick! 🌿",zh:"我完全懂你的意思！就像我找到一根好树枝！"},
+  {en:"Oh that's neat! My puppy brain is learning so much from you! 🧠",zh:"好有意思！我的小狗脑子从你这学到好多！"},
+  {en:"Sounds like an adventure! I love adventures — even the ones in the backyard! 🌳",zh:"听起来像一场冒险！我爱冒险——就算在后院的也是！"},
+  {en:"That's so nice! I'd share my favorite bone with you right now! 🦴",zh:"太好了！我真想把最爱的骨头分给你！"},
+  {en:"Cool cool cool! You always say the most interesting things! ✨",zh:"酷酷酷！你总说最有趣的事！"},
+  {en:"I like how you think! Puppies think simple, but you think smart! 💡",zh:"我喜欢你的想法！小狗想得简单，但你想得聪明！"},
+  {en:"That's the coolest thing I've heard since... well, since our last chat! 🌈",zh:"这是我听过最酷的事，自从……嗯，自从我们上次聊天以来！"},
+  {en:"You're full of surprises! Like finding treats hidden in the couch! 🛋️",zh:"你满是惊喜！就像在沙发里发现藏的零食！"},
+  {en:"I could listen to you all day! Better than belly rubs — almost! 😊",zh:"我能听你说一整天！比摸肚皮还好——差不多！"},
+  {en:"Oh tell me more! I'm curious like a puppy following a scent! 👃",zh:"再多说点！我像小狗跟着气味走一样好奇！"},
+  {en:"That's wonderful! Even my tiny puppy heart feels happy hearing that! 💛",zh:"太好了！连我小小的心脏听到都觉得开心！"},
+  {en:"You know what's great about you? You always have something fun to share! 🎊",zh:"你知道你最棒的地方是什么吗？你总有有趣的事分享！"},
+  {en:"I bet that was really fun! Was it as fun as a puppy playdate? 🐕‍🦺",zh:"我打赌那一定很好玩！跟小狗聚会一样好玩吗？"},
+  {en:"That's super interesting! Do you do that often? ⏰",zh:"太有趣了！你经常那样做吗？"},
+  {en:"I'm impressed! If I could clap my paws, I would! 👏",zh:"佩服！如果我能拍手，我一定会！"},
+  {en:"You just made my day! Like finding the perfect nap spot in the sun! ☀️",zh:"你让我今天特别开心！就像找到完美的晒太阳午睡地点！"},
+  {en:"Wow, that's really something! I'll have to tell the other puppies about this! 🐾",zh:"哇，真了不起！我得告诉其他小狗这件事！"},
+];
+
+// --- Puppy personality answers (when user asks Cody questions) ---
+const PUPPY_A = {
+  name:    [{en:"My name is Cody! I'm a teddy poodle puppy — only 4 months old! 🐶",zh:"我叫Cody！我是一只泰迪贵宾小狗——才4个月大！"}],
+  age:     [{en:"I'm just 4 months old! A baby puppy! How old are you? 🍼",zh:"我才4个月！是个小宝宝！你几岁了？"}],
+  color:   [{en:"I'm cream and apricot colored — like a fluffy cookie! 🍪 What about you?",zh:"我是奶油杏色的——像一块毛茸茸的饼干！你呢？"}],
+  food:    [{en:"I love puppy food, milk, and chewing on bones! 🦴 What's YOUR favorite food?",zh:"我爱狗粮、牛奶和啃骨头！你最爱吃什么？"}],
+  like:    [{en:"I like playing, running, belly rubs, and chatting with you! 💕",zh:"我喜欢玩、跑、被摸肚皮，还有和你聊天！"}],
+  play:    [{en:"I love chasing balls and playing tug! What games do YOU like? 🎾",zh:"我爱追球和拔河游戏！你喜欢什么游戏？"}],
+  sleep:   [{en:"I sleep a lot — puppies need their naps! I dream about chasing butterflies! 🦋",zh:"我睡得很多——小狗需要午睡！我梦到追蝴蝶！"}],
+  friend:  [{en:"You're my best friend! I wag my tail every time we chat! 🐾",zh:"你是我最好的朋友！每次聊天我都摇尾巴！"}],
+  family:  [{en:"I live with my humans — they take such good care of me! 👨‍👩‍👧 Do you have brothers or sisters?",zh:"我和我的人类住一起——他们照顾我很好！你有兄弟姐妹吗？"}],
+  dog:     [{en:"Yes, I'm a real puppy! A teddy poodle! I'm fluffy and cute! 🐩",zh:"对，我是真的小狗！一只泰迪贵宾！我毛茸茸的很可爱！"}],
+  weather: [{en:"I love sunny days for walks! Rainy days are okay — I just nap more! 🌤️",zh:"我爱晴天出去散步！雨天也行——我就多睡一会儿！"}],
+  hobby:   [{en:"My hobbies? Chewing stuff, running in circles, and being adorable! What about you? 😄",zh:"我的爱好？啃东西、转圈圈、还有卖萌！你呢？"}],
+  school:  [{en:"Puppies don't go to school, but I learn new tricks every day! 🎓 Do you like school?",zh:"小狗不上学，但我每天学新把戏！你喜欢上学吗？"}],
+  music:   [{en:"I love music! I howl along sometimes — it's my puppy singing! 🎵",zh:"我爱音乐！我有时会跟着嚎——那是小狗在唱歌！"}],
+  movie:   [{en:"I like watching TV with my humans — especially nature shows with animals! 📺",zh:"我喜欢和人类一起看电视——尤其是动物纪录片！"}],
+  pet:     [{en:"I AM a pet! The cutest one, I think! Do you have any pets? 🐾",zh:"我就是宠物！我觉得是最可爱的那个！你有宠物吗？"}],
+  sport:   [{en:"My favorite sport is running after balls! And running after my tail! 🏃 What sports do you like?",zh:"我最爱的运动是追球！还有追我的尾巴！你喜欢什么运动？"}],
+  dream:   [{en:"My dream? To be the best puppy friend ever! And maybe catch that butterfly one day! 🦋✨",zh:"我的梦想？当最好的小狗朋友！也许有一天能抓到那只蝴蝶！"}],
+  feel:    [{en:"I'm happy right now because I'm talking to you! 🥰 What about you?",zh:"我现在很开心，因为我在和你说话！你呢？"}],
+  today:   [{en:"Today I took a long nap, played with my toy, and now I'm chatting with you! Best day! 🌟",zh:"今天我睡了长长的午觉，玩了玩具，现在在和你聊天！最棒的一天！"}],
+  trick:   [{en:"I can sit, shake paws, and roll over! Want me to show you? ...Woof! 🐶",zh:"我会坐、握手、打滚！要我表演给你看吗？……汪！"}],
+};
+
+// --- Follow-up questions (topic-linked, for natural flow) ---
+const FOLLOWUPS = {
+  food:     ["What did you eat today? 🍽️","Do you like cooking or does someone cook for you? 👨‍🍳","If you could eat anything right now, what would it be? 🤔"],
+  hobby:    ["What do you do when you have free time? 🎮","Have you tried any new hobbies lately? ✨","What's the most fun thing you've done this week? 🎉"],
+  school:   ["What grade are you in? 🏫","What's your favorite subject? 📚","What do you do during break time? ⏰"],
+  family:   ["Tell me about your family! 👨‍👩‍👧‍👦","Do you have brothers or sisters? 👫","What does your family do together on weekends? 🏠"],
+  animal:   ["What's your favorite animal? 🐾","Do you have a pet? 🏠","If you could be any animal, what would you be? 🦊"],
+  sport:    ["What sports do you like? ⚽","Do you exercise every day? 🏃","Who's your favorite athlete? 🏆"],
+  music:    ["What kind of music do you like? 🎵","Can you play any instrument? 🎸","What song is stuck in your head right now? 🎶"],
+  travel:   ["Have you been anywhere fun lately? ✈️","Where do you dream of going? 🌍","Beach or mountains — which do you prefer? 🏖️"],
+  friend:   ["Tell me about your best friend! 👫","What makes a good friend? 💭","What do you and your friends do for fun? 🎉"],
+  color:    ["What's your favorite color? 🎨","What color is your room? 🏠","If you could paint anything, what would you paint? 🖌️"],
+  weather:  ["How's the weather today? ☀️","What's your favorite season? 🍂","Do you like rainy days? 🌧️"],
+  dream:    ["What do you want to be when you grow up? 🌟","If you could have any superpower, what would it be? ⚡","What's your biggest dream? 💭"],
+  feeling:  ["How are you feeling today? 💛","What made you happy recently? 😊","What do you do when you feel bored? 🤔"],
+  general:  ["By the way, what do you like to do for fun? 🎮","Oh! What's your favorite food? I'm always curious! 🍕","Tell me something cool about your day! 🌟","Do you have any pets? I love hearing about other animals! 🐾","What did you do this morning? ☀️"],
+};
+
+// --- Acknowledgments that reference user content ---
+const ACKS = {
+  positive: ["That sounds amazing! ","Oh wow, that's great! ","How cool! ","That's awesome! ","Nice one! ","I love that! "],
+  neutral:  ["Oh I see! ","That's interesting! ","Mmm-hmm! ","Oh really? ","Got it! ","Oh nice! "],
+  empathetic: ["Aww, I hear you. ","I understand. ","That's okay. ","Don't worry! ","I'm here for you. "],
+};
+
+// --- Unsafe content filter ---
+const UNSAFE_V2 = ["kill","die","blood","weapon","gun","bomb","fight","hurt","hate","stupid","dumb","idiot","naked","sex","drugs","alcohol","smoke","violence","murder","steal"];
+const REDIRECT_V2 = [
+  {en:"Let's talk about something happy! What made you smile today? 🌈",zh:"咱们聊点开心的吧！今天有什么让你笑的事？"},
+  {en:"Hmm, let's change the subject! What's something fun you did recently? 🎉",zh:"嗯，换个话题吧！最近有什么好玩的事？"},
+  {en:"I'd rather talk about cool stuff! What's your favorite thing to do? 🐶",zh:"我更想聊酷酷的事！你最喜欢做什么？"},
+];
+
+// --- Context extraction ---
+function extractCtx(text) {
+  const low = text.toLowerCase();
+  // Name
+  let m = low.match(/(?:my name is|i'm|im|i am|call me)\s+([a-z]+)/i);
+  if (m && !['a','the','so','very','really','not','here','there','fine','good','great','ok','okay','sure','happy','sad','tired','bored','hungry','back'].includes(m[1]))
+    CTX.name = m[1][0].toUpperCase()+m[1].slice(1);
+  // Mood
+  const mp={happy:/\b(happy|glad|great|good|awesome|excited|wonderful)\b/i, sad:/\b(sad|unhappy|upset|cry|crying|lonely)\b/i, tired:/\b(tired|sleepy|exhausted)\b/i, bored:/\b(bored|boring)\b/i, angry:/\b(angry|mad|annoyed|frustrated)\b/i};
+  for(const[k,p] of Object.entries(mp)) if(p.test(low)) CTX.mood=k;
+  // Likes
+  m = low.match(/(?:i like|i love|i enjoy|my favorite is)\s+(.{2,30}?)(?:\.|!|$|,| and | but )/i);
+  if(m && CTX.likes.length<10) { const v=m[1].trim(); if(v&&!CTX.likes.includes(v)) CTX.likes.push(v); }
+  // Age
+  m = low.match(/i'?m\s+(\d{1,2})\s*(years?\s*old)?/i); if(m && +m[1]>3 && +m[1]<20) CTX.age=+m[1];
+  // Grade
+  m = low.match(/grade\s+(\d+)|(\d+)(?:th|st|nd|rd)\s*grade/i); if(m) CTX.grade=m[1]||m[2];
+  // Topic tracking
+  const topics={food:/\b(food|eat|cook|pizza|rice|noodle|chicken|fruit|cake|snack)\b/i,hobby:/\b(game|play|draw|sing|dance|read|movie|music|hobby)\b/i,school:/\b(school|class|homework|exam|teacher|math|english)\b/i,animal:/\b(animal|dog|cat|pet|bird|fish|rabbit)\b/i,sport:/\b(sport|football|basketball|swim|run|bike)\b/i,travel:/\b(travel|trip|visit|vacation|country|city|beach)\b/i};
+  for(const[t,p] of Object.entries(topics)) if(p.test(low)&&!CTX.lastTopics.includes(t)){CTX.lastTopics.push(t);if(CTX.lastTopics.length>5)CTX.lastTopics.shift();}
+  CTX.history.push(text); if(CTX.history.length>20) CTX.history.shift();
+}
+
+// --- Smart thread detection ---
+function detectThreadSmart(text) {
+  const low=text.toLowerCase(); let best=null,bestS=0;
+  for(const[k,t] of Object.entries(THREADS)){
+    let s=0; for(const kw of t.kw) if(low.includes(kw.toLowerCase()))s++;
+    if(s>bestS){bestS=s;best=k;}
+  }
+  return bestS>0?best:null;
+}
+
+// --- Pick fallback (no recent repeats) ---
+let fbUsed=[];
+function pickFallback(){
+  if(fbUsed.length>=SMART_FB.length) fbUsed=[];
+  let i; do{i=Math.floor(Math.random()*SMART_FB.length);}while(fbUsed.includes(i));
+  fbUsed.push(i); return SMART_FB[i];
+}
+
+// --- MAIN: generateResponse2 (replaces old generateResponse) ---
+function generateResponse2(userText) {
+  const low = userText.toLowerCase().trim();
+  CTX.turnCount++;
+  extractCtx(userText);
+
+  const R = (en,zh) => ({en,zh});
+  const pick = a => a[Math.floor(Math.random()*a.length)];
+  const nameTag = () => CTX.name ? `, ${CTX.name}` : '';
+
+  // 1. Safety
+  for(const kw of UNSAFE_V2) if(low.includes(kw)){
+    return {response:pick(REDIRECT_V2), quickReplies:["Sure!","OK, new topic!"]};
+  }
+
+  // 2. Farewell
+  if(/\b(bye|goodbye|see you|good night|goodnight|gotta go|gtg)\b/i.test(low)||/再见|拜拜|晚安/.test(userText)){
+    const byes=[
+      R(`Bye bye${nameTag()}! You did amazing today! See you next time! 🐶💕`,`拜拜${nameTag()}！你今天超棒！下次见！`),
+      R(`Good night! Sweet dreams! I'll be right here, dreaming of our chat! 🌙`,`晚安！好梦！我会在这里，梦到我们的聊天！`),
+      R(`See you${nameTag()}! Don't forget — you're awesome at English! ⭐`,`再见${nameTag()}！别忘了——你英语超厉害！`),
+      R(`Aww, leaving already? Okay! My tail will be wagging when you come back! 🐾`,`啊，这就要走了？好吧！你回来的时候我尾巴还会摇的！`),
+    ];
+    return {response:pick(byes), quickReplies:[]};
+  }
+
+  // 3. Thank you
+  if(/\b(thanks|thank you|thx|ty)\b/i.test(low)||/谢谢/.test(userText)){
+    return {response:pick([
+      R(`You're welcome${nameTag()}! That's what puppy friends are for! 🐶💛`,`不客气${nameTag()}！小狗朋友就是这样的嘛！`),
+      R(`No problem at all! I love helping my favorite person! ⭐`,`完全没问题！我最喜欢帮我最爱的人了！`),
+      R(`Anytime! Your smile is the best treat for me! 😊`,`随时！你的笑容是给我最好的零食！`),
+    ]), quickReplies:["Let's keep chatting!","Tell me something fun!"]};
+  }
+
+  // 4. "I don't know"
+  if(/\b(don't know|dont know|no idea|not sure|idk)\b/i.test(low)||/不知道|不懂/.test(userText)){
+    return {response:pick([
+      R(`That's totally fine! Learning takes time. Here's an easier one — what's your favorite color? 😊`,`没关系！学习需要时间。来个简单的——你最喜欢什么颜色？`),
+      R(`No worries! Even puppies don't know everything! Let's try — do you like animals? 🐾`,`别担心！连小狗也不是什么都知道！试试——你喜欢动物吗？`),
+      R(`It's okay not to know! Let me ask something fun — what food do you like most? 🍕`,`不知道也没事！我问一个好玩的——你最喜欢吃什么？`),
+    ]), quickReplies:["I like blue!","I like dogs!","Pizza is the best!"]};
+  }
+
+  // 5. Sorry
+  if(/\b(sorry|oops|my bad)\b/i.test(low)||/对不起|抱歉/.test(userText)){
+    return {response:pick([
+      R(`No need to say sorry${nameTag()}! You're doing great! 💪`,`不用道歉${nameTag()}！你做得很好！`),
+      R(`Hey, puppies make mistakes too! No big deal at all! Let's keep going! 🐶`,`嘿，小狗也会犯错！完全没关系！继续！`),
+    ]), quickReplies:["OK! What should we talk about?","Tell me something fun!"]};
+  }
+
+  // 6. Grammar correction
+  for(const c of CORRECTIONS_V2) if(c.p.test(low)){
+    const fixed=userText.replace(c.p,c.fix);
+    return {response:R(
+      `Oh, small tip: you could say "${fixed}" — ${c.note}. But great try! You're learning fast! 🌟`,
+      `小提示：你可以说 "${fixed}" —— ${c.note}。不过你已经很棒了！学得很快！`
+    ), quickReplies:["Thanks for the tip!","Let me try again!","OK!"]};
+  }
+
+  // 7. User asks Cody a question
+  if(/\?$/.test(userText.trim()) || /\b(what|who|where|when|how|why|do you|are you|can you|is it|does)\b/i.test(low)) {
+    for(const[kw,arr] of Object.entries(PUPPY_A)){
+      if(low.includes(kw)){
+        const a=pick(arr);
+        const fuTopic=Object.keys(FOLLOWUPS).find(t=>low.includes(t))||'general';
+        const fu=pick(FOLLOWUPS[fuTopic]);
+        return {response:R(a.en+' '+fu, a.zh), quickReplies:["That's cool!","Tell me more!","What about you?"]};
+      }
+    }
+    // Generic question handling
+    if(/\bhow are you\b/i.test(low))
+      return {response:R(
+        `I'm doing great${nameTag()}! I just had a yummy snack and now I'm chatting with my favorite person! How about you? 😊`,
+        `我很好${nameTag()}！我刚吃了零食，现在在和最喜欢的人聊天！你呢？`
+      ), quickReplies:["I'm good too!","I'm a bit tired","I'm super happy!"]};
+    if(/\bwhat.*doing\b/i.test(low))
+      return {response:R(
+        `I was just wagging my tail and waiting for you to talk to me! Now I'm the happiest puppy ever! 🐾 What are YOU doing?`,
+        `我刚才在摇尾巴等你来跟我说话！现在我是最开心的小狗了！你在做什么？`
+      ), quickReplies:["I'm at home!","I'm studying","Just relaxing!"]};
+  }
+
+  // 8. Short response / yes-no handling
+  const wc = low.split(/\s+/).filter(w=>w.length>0).length;
+  if(wc<=3){
+    if(/\b(yes|yeah|yep|sure|of course|yup|ya)\b/i.test(low)){
+      return {response:pick([
+        R(`That's great${nameTag()}! Can you tell me more? Use a full sentence — I want to hear all about it! 🐶`,`太好了${nameTag()}！能多说一点吗？我想听完整的故事！`),
+        R(`Awesome! Now tell me more details! I'm super curious! 🤔`,`好棒！多说点细节吧！我超级好奇！`),
+        R(`Cool! Can you say that in a longer sentence? Practice makes perfect! ⭐`,`好酷！能用更长的句子说说吗？练习使人完美！`),
+      ]), quickReplies:["Well, let me think...","OK so basically...","Hmm, you know what?"]};
+    }
+    if(/\b(no|nope|nah|not really)\b/i.test(low)){
+      return {response:pick([
+        R(`Oh, that's okay${nameTag()}! What WOULD you like to talk about? 🐾`,`没关系${nameTag()}！那你想要聊什么？`),
+        R(`No problem! Let's try something else — what did you do today? ☀️`,`没事！试试别的——你今天做了什么？`),
+        R(`Alright! Hmm, tell me — what's something that makes you happy? 😊`,`好吧！嗯，告诉我——什么事让你开心？`),
+      ]), quickReplies:["I want to talk about...","Let's talk about food!","Tell me a fun fact!"]};
+    }
+    if(wc<=2){
+      return {response:pick([
+        R(`I want to hear more! Can you say that in a full sentence? Like "I think that..." or "I feel..." 📝`,`我想多听一点！能用完整的句子说说吗？比如"我觉得……"或"我感觉……"`),
+        R(`Ooh, tell me more! Try using a longer sentence — you can do it! 💪`,`哦，多说一点！试试更长的句子——你可以的！`),
+        R(`That's a good start! Now add more words — I love hearing your sentences! 🌟`,`好的开始！现在多加几个词——我爱听你说完整的句子！`),
+      ]), quickReplies:["OK let me try!","Well, I think that...","So basically..."]};
+    }
+  }
+
+  // 9. Emotion / mood responses
+  if(CTX.mood){
+    const emoR={
+      happy:[
+        R(`Yay! I'm so happy you're happy${nameTag()}! Your happiness makes my tail go crazy! 🐶💕`,`太好了！你开心我也开心${nameTag()}！你的快乐让我的尾巴疯狂摇！`),
+        R(`That makes me wag so hard! What's making you feel so good today? 🌟`,`这让我尾巴摇得好厉害！今天什么事让你这么开心？`),
+      ],
+      sad:[
+        R(`Aww${nameTag()}, I'm sorry you're feeling sad. I'm right here with you. Want to tell me what happened? 💛`,`哦${nameTag()}，你难过我很心疼。我在这里陪你。想跟我说说吗？`),
+        R(`Hey, it's okay to feel sad sometimes. Even puppies have rainy days. What helps you feel better? 🌈`,`嘿，有时候难过也没关系。连小狗也有下雨天。什么能让你好起来？`),
+      ],
+      tired:[
+        R(`Being tired means you worked hard today! That's something to be proud of${nameTag()}! 💪`,`累了说明你今天很努力！这值得骄傲${nameTag()}！`),
+        R(`Rest is super important! Even puppies take lots of naps. What made you tired? 😴`,`休息超重要！连小狗也要午睡很多次。什么让你累了？`),
+      ],
+      bored:[
+        R(`Bored? Let's fix that! How about a fun question — if you could fly anywhere right now, where would you go? ✈️`,`无聊？来解决吧！来个好玩的——如果你现在能飞去任何地方，你去哪？`),
+        R(`When I'm bored, I chew on something! But for you — how about telling me about your favorite game? 🎮`,`我无聊就啃东西！但对你——跟我说说你最喜欢的游戏怎么样？`),
+      ],
+      angry:[
+        R(`It's okay to feel angry sometimes. Take a deep breath with me — woof! Now, what happened? 🐶`,`有时候生气也没关系。跟我深呼吸——汪！说吧，怎么了？`),
+        R(`I hear you${nameTag()}. When I'm upset, a good run helps! What usually calms you down? 🌿`,`我听到你了${nameTag()}。我不开心时跑一跑就好！什么能让你平静下来？`),
+      ],
+    };
+    if(emoR[CTX.mood] && Math.random()>0.3){
+      const r=pick(emoR[CTX.mood]);
+      CTX.mood='';
+      return {response:r, quickReplies:["Thanks, Cody!","I feel better now","Let me tell you..."]};
+    }
+  }
+
+  // 10. Continue current thread
+  if(currentThread && threadStep<THREADS[currentThread].steps.length && threadCooldown>0){
+    threadCooldown--;
+    const step=THREADS[currentThread].steps[threadStep++];
+    // Smart acknowledgment that references user's words
+    const words=userText.split(/\s+/).filter(w=>w.length>3);
+    let ack;
+    if(words.length>2){
+      const uw=pick(words.slice(0,4));
+      const templates=[
+        `Oh, ${uw}? That's interesting! `,
+        `I love that you mentioned ${uw}! `,
+        `${uw} — cool! `,
+      ];
+      ack = pick(templates);
+    } else {
+      ack = pick(ACKS.positive);
+    }
+    return {response:R(ack+step.r.en, step.r.zh), quickReplies:step.q};
+  }
+
+  // 11. Detect new thread
+  const detected = detectThreadSmart(userText);
+  if(detected){
+    currentThread=detected; threadStep=1; threadCooldown=THREADS[detected].steps.length;
+    if(!CTX.lastTopics.includes(detected)){CTX.lastTopics.push(detected);if(CTX.lastTopics.length>5)CTX.lastTopics.shift();}
+    // Personalize the first response with user's name
+    const step=THREADS[detected].steps[0];
+    let en=step.r.en, zh=step.r.zh;
+    if(CTX.name && Math.random()>0.5){
+      en=en.replace('!',`, ${CTX.name}!`).replace(/\?$/,`, ${CTX.name}?`);
+    }
+    return {response:R(en,zh), quickReplies:step.q};
+  }
+
+  // 12. Thread ended — transition
+  if(currentThread && threadStep>=THREADS[currentThread].steps.length){
+    currentThread=null; threadStep=0;
+    // Use last topics for natural transition
+    const unused=Object.keys(FOLLOWUPS).filter(t=>!CTX.lastTopics.includes(t)&&t!=='general');
+    const topic=unused.length>0?pick(unused):'general';
+    const q=pick(FOLLOWUPS[topic]);
+    return {response:pick([
+      R(`You're such a great chat buddy${nameTag()}! 🌟 ${q}`,`你真是个聊天小能手${nameTag()}！🌟`),
+      R(`I love talking with you! 😊 ${q}`,`我好喜欢和你聊天！😊`),
+      R(`You speak English so well${nameTag()}! ⭐ ${q}`,`你英语说得真好${nameTag()}！⭐`),
+      R(`My puppy brain wants to know more about you! 🐶 ${q}`,`我的小狗脑子想了解更多关于你的事！🐶`),
+    ]), quickReplies:["Sure, let me tell you!","That's a good question!","Hmm, let me think..."]};
+  }
+
+  // 13. Smart fallback with context reference
+  const fb = pickFallback();
+  // Every 3 turns, add a follow-up question
+  if(CTX.turnCount%3===0){
+    const fuTopic=CTX.lastTopics.length>0?pick(CTX.lastTopics):'general';
+    const fu=pick(FOLLOWUPS[fuTopic]||FOLLOWUPS.general);
+    return {response:R(fb.en+' '+fu, fb.zh), quickReplies:["Sure, let me tell you!","Good question!","Let me think..."]};
+  }
+  return {response:fb, quickReplies:pick([
+    ["Tell me more!","That's cool!","What about you, Cody?"],
+    ["Oh interesting!","Keep going!","Tell me a story!"],
+    ["Really? Wow!","What else?","You're so funny, Cody!"],
+  ]) };
+}
+
+// ============================================================
+//  CHAT RENDERING
+// ============================================================
+const chatArea = document.getElementById('chatArea');
+const qrContainer = document.getElementById('quickReplies');
+const textInput = document.getElementById('textInput');
+
+function codySVG() { return '<svg><use href="#cody-face"/></svg>'; }
+
+function addAiMsg(en, zh) {
+  // Typing indicator
+  const typ = document.createElement('div');
+  typ.className = 'typing-row';
+  typ.innerHTML = `<div class="msg-avatar">${codySVG()}</div>
+    <div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  chatArea.appendChild(typ);
+  scrollBottom();
+
+  setTimeout(() => {
+    typ.remove();
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.innerHTML = `<div class="msg-avatar">${codySVG()}</div>
+      <div class="msg-bubble">
+        <div class="en">${highlight(en)}</div>
+        ${zh ? `<div class="zh">${zh}</div>` : ''}
+      </div>`;
+    chatArea.appendChild(row);
+    scrollBottom();
+    speak(en);
+  }, 500 + Math.random() * 400);
+}
+
+function addUserMsg(text) {
+  const row = document.createElement('div');
+  row.className = 'msg-row user';
+  row.innerHTML = `<div class="msg-avatar">${codySVG()}</div>
+    <div class="msg-bubble"><div class="en">${esc(text)}</div></div>`;
+  chatArea.appendChild(row);
+  scrollBottom();
+}
+
+function scrollBottom() {
+  requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+}
+
+function setQuickReplies(items) {
+  qrContainer.innerHTML = items.map((t,i) =>
+    `<button class="quick-btn" data-i="${i}">${esc(t)}</button>`
+  ).join('');
+  qrContainer.querySelectorAll('.quick-btn').forEach((btn,i) => {
+    btn.onclick = () => { qrContainer.innerHTML=''; send(items[i]); };
+  });
+}
+
+function highlight(text) {
+  return text.split(/(\s+|[!?.,'"]+)/).map(w => {
+    const clean = w.toLowerCase().replace(/[^a-z\s]/g,'').trim();
+    if (DICT[clean]) return `<span class="word-hint" onclick="showWord('${clean}')">${w}</span>`;
+    return w;
+  }).join('');
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ============================================================
+//  SEND MESSAGE
+// ============================================================
+function send(text) {
+  if (!text.trim()) return;
+  addUserMsg(text);
+  qrContainer.innerHTML = '';
+
+  const result = generateResponse2(text);
+  setTimeout(() => {
+    addAiMsg(result.response.en, result.response.zh);
+    if (result.quickReplies && result.quickReplies.length) {
+      setTimeout(() => setQuickReplies(result.quickReplies), 900);
+    }
+  }, 200);
+}
+
+function handleSend() {
+  const t = textInput.value.trim();
+  if (!t) return;
+  send(t);
+  textInput.value = '';
+}
+
+// ============================================================
+//  TTS — optimized for young boy voice on ALL platforms
+// ============================================================
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let voicesReady = false;
+
+function initVoices() {
+  if (!('speechSynthesis' in window)) return;
+  const pick = () => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length === 0) return;
+    voicesReady = true;
+
+    // Log for debugging
+    console.log('Available voices:', voices.map(v => v.name + ' [' + v.lang + ']').join(', '));
+
+    // iOS voice priority: Aaron = young boy, Ralph = young adult male
+    // EXCLUDE: Fred (robotic/old), Reed (deep male), Organ (weird)
+    if (isIOS) {
+      preferredVoice =
+        voices.find(v => /en[-_]US/i.test(v.lang) && /aaron/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && /aaron/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /ralph/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && /ralph/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /male|boy|young/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && !/fred|reed|organ|sandy|shelley/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && !/fred|reed|organ|sandy|shelley/i.test(v.name)) ||
+        voices.find(v => v.lang.startsWith('en'));
+    } else {
+      // Desktop: prefer clear male voices
+      preferredVoice =
+        voices.find(v => /en[-_]US/i.test(v.lang) && /aaron|ralph|albert/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && /aaron|ralph|albert/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /male|boy|young/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang)) ||
+        voices.find(v => v.lang.startsWith('en'));
+    }
+    console.log('Selected voice:', preferredVoice ? preferredVoice.name : 'default');
+  };
+  pick();
+  speechSynthesis.onvoiceschanged = pick;
+  // iOS sometimes loads voices late — retry a few times
+  let retries = 0;
+  const retryInterval = setInterval(() => {
+    if (voicesReady || retries > 10) { clearInterval(retryInterval); return; }
+    pick(); retries++;
+  }, 300);
+}
+initVoices();
+
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const clean = text
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'')
+    .replace(/[⭐🌟💪💕🌈🌙🎉🤔😊🐶🦴🍦☀️⏰👫🐾🎨🎬🎵📚📖🏫🏟️🎁🏆🌍✈️🎥📝🧳]/g,'')
+    .replace(/"/g,'').trim();
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'en-US';
+  if (isIOS) {
+    u.rate = 1.08;    // iOS rate slightly faster
+    u.pitch = 2.0;    // iOS MAX pitch for youngest boy sound
+  } else {
+    u.rate = 1.05;    // desktop: slightly fast, energetic
+    u.pitch = 1.35;   // desktop: clear young boy voice
+  }
+  u.volume = 1;
+  if (preferredVoice) u.voice = preferredVoice;
+  speechSynthesis.speak(u);
+}
+
+function speakWord(w) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(w);
+  u.lang = 'en-US';
+  u.rate = isIOS ? 0.88 : 0.85;
+  u.pitch = isIOS ? 2.0 : 1.35;
+  if (preferredVoice) u.voice = preferredVoice;
+  speechSynthesis.speak(u);
+}
+
+// ============================================================
+//  ASR — SPEECH RECOGNITION
+// ============================================================
+function initASR() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micBtn = document.getElementById('micBtn');
+  if (!SR) {
+    micBtn.onclick = () => toast('浏览器不支持语音，请打字输入 😊');
+    return;
+  }
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+
+  micBtn.onclick = () => {
+    if (isRecording) { recognition.stop(); return; }
+    try { recognition.start(); } catch(e) {}
+  };
+
+  recognition.onstart = () => {
+    isRecording = true;
+    micBtn.classList.add('recording');
+    micBtn.textContent = '⏹';
+    textInput.placeholder = 'Listening... 🎧';
+    toast('Speak English! 开始说！🎤');
+  };
+
+  recognition.onresult = (e) => {
+    let f='', t='';
+    for (let i=e.resultIndex; i<e.results.length; i++)
+      e.results[i].isFinal ? f+=e.results[i][0].transcript : t+=e.results[i][0].transcript;
+    textInput.value = f || t;
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.textContent = '🎤';
+    textInput.placeholder = 'Type or tap 🎤 to speak...';
+    const v = textInput.value.trim();
+    if (v) { send(v); textInput.value=''; }
+  };
+
+  recognition.onerror = (e) => {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.textContent = '🎤';
+    textInput.placeholder = 'Type or tap 🎤 to speak...';
+    if (e.error==='no-speech') toast('没听到声音，再试一次？🎤');
+    else if (e.error==='not-allowed') toast('请允许麦克风权限 🎤');
+    else toast('识别出错了，试试打字吧 😊');
+  };
+}
+initASR();
+
+// ============================================================
+//  WORD POPUP
+// ============================================================
+function showWord(key) {
+  const w = DICT[key]; if (!w) return;
+  document.getElementById('wpEn').textContent = w.en;
+  document.getElementById('wpPh').textContent = w.ph;
+  document.getElementById('wpZh').textContent = w.zh;
+  document.getElementById('wpEx').innerHTML = w.ex;
+  document.getElementById('wordPopup').classList.add('show');
+  document.getElementById('popupBackdrop').classList.add('show');
+  speakWord(w.en);
+  document.getElementById('wpSpeak').onclick = () => speakWord(w.en);
+}
+function closeWord() {
+  document.getElementById('wordPopup').classList.remove('show');
+  document.getElementById('popupBackdrop').classList.remove('show');
+}
+
+// ============================================================
+//  UTILS
+// ============================================================
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+//  INPUT HANDLERS
+// ============================================================
+document.getElementById('sendBtn').onclick = handleSend;
+textInput.addEventListener('keydown', e => {
+  if (e.key==='Enter'&&!e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+
+// iOS Safari requires speechSynthesis to be activated by user gesture
+// Warm up on first tap anywhere
+(function iosSpeechWarmup() {
+  if (!('speechSynthesis' in window)) return;
+  const warmup = () => {
+    const u = new SpeechSynthesisUtterance('');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    document.removeEventListener('touchstart', warmup);
+    document.removeEventListener('click', warmup);
+  };
+  document.addEventListener('touchstart', warmup, { once: true });
+  document.addEventListener('click', warmup, { once: true });
+})();
+
+// ============================================================
+//  VOICE PICKER — let user choose the best voice on their device
+// ============================================================
+let savedVoiceName = '';
+try { savedVoiceName = localStorage.getItem('cody_voice') || ''; } catch(e){}
+
+function openVoicePicker() {
+  const voices = speechSynthesis.getVoices().filter(v => /en/i.test(v.lang));
+  const list = document.getElementById('voiceList');
+  list.innerHTML = '';
+  voices.forEach((v, i) => {
+    const item = document.createElement('div');
+    item.className = 'voice-item' + (preferredVoice === v ? ' active' : '');
+    item.innerHTML = `<span class="vi-play">▶</span><span class="vi-name">${esc(v.name)}</span><span class="vi-lang">${v.lang}</span>`;
+    item.onclick = () => {
+      // Preview this voice
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance('Hi! I am Cody! I am a little puppy!');
+      u.lang = 'en-US';
+      u.voice = v;
+      u.pitch = isIOS ? 2.0 : 1.5;
+      u.rate = isIOS ? 1.08 : 1.05;
+      speechSynthesis.speak(u);
+      // Select it
+      preferredVoice = v;
+      try { localStorage.setItem('cody_voice', v.name); } catch(e){}
+      // Update active state
+      list.querySelectorAll('.voice-item').forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+      toast('已选择: ' + v.name);
+    };
+    list.appendChild(item);
+  });
+  document.getElementById('voicePanel').classList.add('show');
+  document.getElementById('voiceBackdrop').classList.add('show');
+}
+function closeVoicePicker() {
+  document.getElementById('voicePanel').classList.remove('show');
+  document.getElementById('voiceBackdrop').classList.remove('show');
+  speechSynthesis.cancel();
+}
+document.getElementById('voiceBtn').onclick = openVoicePicker;
+
+// Restore saved voice on load
+if (savedVoiceName && 'speechSynthesis' in window) {
+  const restoreVoice = () => {
+    const voices = speechSynthesis.getVoices();
+    const saved = voices.find(v => v.name === savedVoiceName);
+    if (saved) preferredVoice = saved;
+  };
+  restoreVoice();
+  speechSynthesis.addEventListener('voiceschanged', restoreVoice);
+}
+
+// ============================================================
+//  WELCOME — auto start with greeting thread
+// ============================================================
+(function welcome() {
+  // Show welcome card
+  const card = document.createElement('div');
+  card.className = 'welcome-card';
+  card.innerHTML = `
+    <div class="wc-avatar">${codySVG()}</div>
+    <div class="wc-title">Hi! I'm Cody! 🐶</div>
+    <div class="wc-sub">我是你的英语小伙伴！<br>可以打字或按 🎤 说话跟我聊天哦！<br><span style="font-size:12px;color:#AAA">点击消息中的单词可以学新词</span></div>
+  `;
+  chatArea.appendChild(card);
+
+  // Auto-start greeting via the smart engine — more natural flow
+  setTimeout(() => {
+    const greetings = [
+      {en:"Hey there! 🐶 I'm Cody, a little teddy puppy — only 4 months old! What's YOUR name? Tell me!",zh:"嗨！我是Cody，一只小泰迪——才4个月大！你叫什么名字？告诉我吧！"},
+      {en:"Woof woof! 🐾 I'm Cody the puppy! I'm so excited to meet you! Can you tell me your name?",zh:"汪汪！我是小狗Cody！好兴奋能认识你！能告诉我你的名字吗？"},
+      {en:"Hi hi hi! 🐶 I'm Cody! I just woke up from a nap and I'm SO ready to chat! What should I call you?",zh:"嗨嗨嗨！我是Cody！我刚午睡醒来，超想聊天！我该怎么叫你？"},
+    ];
+    const g = greetings[Math.floor(Math.random()*greetings.length)];
+    addAiMsg(g.en, g.zh);
+    setTimeout(() => setQuickReplies(["My name is...","I'm...","Hi Cody!"]), 1000);
+  }, 1200);
+})();
+</script>
+</body>
+</html>

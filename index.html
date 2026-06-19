@@ -1263,6 +1263,8 @@ function startGuessGame() {
 function handleGuess(text) {
   const low = text.toLowerCase();
   if (!guessState) return null;
+
+  // Check for correct answer first
   if (low.includes(guessState.animal.answer)) {
     const a = guessState.animal.answer;
     guessState = null;
@@ -1271,18 +1273,79 @@ function handleGuess(text) {
       `对啦！是${a}！你好聪明${nameTag()}！🎉🐾 再玩一次还是聊别的？`
     );
   }
+
+  // Detect hint requests — give another clue WITHOUT revealing answer
+  const hintPattern = /\b(hint|more clues|another clue|give me a clue|give me a hint|one more clue|need help)\b/i;
+  if (hintPattern.test(low) || /提示|线索|再给个/.test(text)) {
+    if (guessState.clueIdx < guessState.animal.clues.length - 1) {
+      guessState.clueIdx++;
+      return R(
+        `Here's a hint! 🤔 "${guessState.animal.clues[guessState.clueIdx]}" What do you think now?`,
+        `给你一个提示！🤔 "${guessState.animal.clues[guessState.clueIdx]}" 现在觉得是什么？`
+      );
+    }
+    // No more clues — reveal with encouragement
+    const a = guessState.animal.answer;
+    const funFacts = {
+      elephant: "Elephants can remember things for a very long time!",
+      lion: "A lion's roar can be heard from 8 kilometers away!",
+      butterfly: "Butterflies taste with their feet!",
+      dolphin: "Dolphins sleep with one eye open!",
+      spider: "Most spiders have eight eyes!",
+      panda: "Pandas eat bamboo for about 12 hours a day!",
+      snake: "Snakes smell with their tongue!",
+      bee: "Bees do a special dance to find flowers!",
+      goldfish: "Goldfish can see more colors than humans!",
+      bat: "Bats are the only mammals that can truly fly!",
+    };
+    const fact = funFacts[a] || `"${a}" is a great word to remember!`;
+    guessState = null;
+    return R(
+      `I've given all my clues! The answer is: "${a}"! 🐾 Fun fact: ${fact} Want to try another?`,
+      `我的线索都用完了！答案是："${a}"！🐾 小知识：${fact} 要再试一个吗？`
+    );
+  }
+
+  // Detect give-up phrases — reveal answer with teaching
+  const giveUpPattern = /\b(i don't know|dont know|i give up|give up|tell me|no idea|i have no idea|what is it|what's the answer|show me|reveal|pass|skip|i quit|too hard)\b/i;
+  if (giveUpPattern.test(low) || /不知道|告诉我|答案|太难|放弃/.test(text)) {
+    const a = guessState.animal.answer;
+    const funFacts = {
+      elephant: "Elephants can remember things for a very long time, and they cry when they're sad!",
+      lion: "A lion's roar can be heard from 8 kilometers away! That's really loud!",
+      butterfly: "Butterflies taste with their feet! Can you imagine that?",
+      dolphin: "Dolphins sleep with one eye open! They're so cool!",
+      spider: "Most spiders have eight eyes, but some have none at all!",
+      panda: "Pandas spend about 12 hours a day eating bamboo. That's their favorite food!",
+      snake: "Snakes smell with their tongue! They flick it to catch scents in the air.",
+      bee: "Bees do a special dance to tell other bees where to find flowers!",
+      goldfish: "Goldfish can see more colors than humans! They have amazing eyes!",
+      bat: "Bats are the only mammals that can truly fly! Pretty cool, right?",
+    };
+    const fact = funFacts[a] || `Did you know? The word "${a}" is a great vocabulary word to remember!`;
+    guessState = null;
+    return R(
+      `No worries${nameTag()}! The answer was: "${a}"! 🐾 Here's a fun fact: ${fact} Now you know something new! Want to try another one?`,
+      `没关系${nameTag()}！答案是："${a}"！🐾 小知识：${fact} 又学到新东西了！要再试一个吗？`
+    );
+  }
+
+  // Wrong guess — give next clue
   guessState.clueIdx++;
   if (guessState.clueIdx < guessState.animal.clues.length) {
+    const encourage = pick([
+      "Good try! ", "Nice guess! ", "Almost! ", "Not bad! ", "Close thinking! "
+    ]);
     return R(
-      `Not quite! Here's another clue: "${guessState.animal.clues[guessState.clueIdx]}" Try again! 🤔`,
-      `不太对！再来一个线索："${guessState.animal.clues[guessState.clueIdx]}" 再试试！🤔`
+      `${encourage}Here's another clue: "${guessState.animal.clues[guessState.clueIdx]}" What do you think? 🤔`,
+      `${encourage}再来一个线索："${guessState.animal.clues[guessState.clueIdx]}" 你觉得是什么？🤔`
     );
   }
   const a = guessState.animal.answer;
   guessState = null;
   return R(
-    `The answer was: ${a}! It was a tricky one! Want to try another? 🐾`,
-    `答案是：${a}！这个有点难！要再试一个吗？🐾`
+    `The answer was: "${a}"! Great effort${nameTag()}! Don't worry, this was a tricky one! Want to try another? 🐾`,
+    `答案是："${a}"！${nameTag()}你很努力了！这个确实有点难！要再试一个吗？🐾`
   );
 }
 
@@ -1395,14 +1458,41 @@ function generateResponse2(userText) {
         `对啦！你好聪明${nameTag()}！🎉 再来一个谜语还是聊别的？`
       ), quickReplies:["Another riddle!","Let's play a game!","Let's chat!"]};
     }
-    // Wrong answer — give hint or reveal
+    // Hint request — give a small clue without revealing
+    const hintPattern = /\b(hint|give me a hint|clue|more clues|need help)\b/i;
+    if (hintPattern.test(low) || /提示|线索/.test(userText)) {
+      // Give first letter or length as hint
+      const firstLetter = gameData.a.charAt(0).toUpperCase();
+      const wordLen = gameData.a.length;
+      return {response:pick([
+        R(`Here's a hint! 🤔 The answer starts with "${firstLetter}" and has ${wordLen} letters. Try again!`,
+          `给你一个提示！🤔 答案以"${firstLetter}"开头，有${wordLen}个字母。再试试！`),
+        R(`Hint time! 🤔 It starts with the letter "${firstLetter}". Can you think of what it is?`,
+          `提示时间！🤔 它以字母"${firstLetter}"开头。能想到是什么吗？`),
+      ]), quickReplies:["I think I know!","Tell me the answer!","Another hint please!"]};
+    }
+    // Detect give-up
+    const giveUpPattern = /\b(i don't know|dont know|give up|i give up|tell me|no idea|what is it|what's the answer|reveal|pass|skip|too hard)\b/i;
+    if (giveUpPattern.test(low) || /不知道|告诉我|答案|太难/.test(userText)) {
+      const answer = gameData.a;
+      gameMode = null; gameData = null;
+      return {response:pick([
+        R(`The answer is: "${answer}"! 🧩 Don't worry, riddles are tricky! Now you'll know it next time! Want another one?`,
+          `答案是："${answer}"！🧩 别担心，谜语本来就难！下次你就知道了！再来一个？`),
+        R(`It's "${answer}"! 🤔 Riddles make your brain stronger! That's a great new word to learn. Try another?`,
+          `是"${answer}"！🤔 猜谜语能让大脑更强！这是个很好的新词汇。再试一个？`),
+      ]), quickReplies:["Another riddle!","Let's play something else","Tell me a fun fact!"]};
+    }
+    // Wrong answer — reveal with encouragement
     gameMode = null;
     const answer = gameData.a;
     gameData = null;
-    return {response:R(
-      `The answer was: ${answer}! Tricky one, right? 😄 Want to try another?`,
-      `答案是：${answer}！有点难对吧？😄 要再试一个吗？`
-    ), quickReplies:["Another riddle!","Let's play something else","Tell me a fun fact!"]};
+    return {response:pick([
+      R(`Not quite, but good try! The answer was: "${answer}"! 🧩 Now you know something new! Want to try another riddle?`,
+        `不太对，但好尝试！答案是："${answer}"！🧩 又学到新东西了！再来一个谜语？`),
+      R(`Close! The answer is "${answer}"! 😄 Every riddle you try makes your English better! Another one?`,
+        `差一点！答案是"${answer}"！😄 每猜一个谜语英语就进步一点！再来？`),
+    ]), quickReplies:["Another riddle!","Let's play something else","Tell me a fun fact!"]};
   }
 
   // 1. Safety
@@ -1432,13 +1522,39 @@ function generateResponse2(userText) {
     ]), quickReplies:["Let's keep chatting!","Play a game!","Tell me something fun!"]};
   }
 
-  // 4. "I don't know" — redirect with a game or fun question
+  // 4. "I don't know" — acknowledge it's OK, offer different paths
   if(/\b(don't know|dont know|no idea|not sure|idk)\b/i.test(low)||/不知道|不懂/.test(userText)){
-    const qItem = pickQB('fun');
-    return {response:pick([
-      R(`That's totally fine! Let me ask something fun instead... ${qItem.q}`,`没关系！来个有趣的问题吧……${qItem.q}`),
-      R(`No worries! Even puppies don't know everything! How about this: ${qItem.q}`,`别担心！小狗也不是什么都知道！试试这个：${qItem.q}`),
-    ]), quickReplies:["Hmm, let me think...","I know!","Tell me something else!"]};
+    const paths = [
+      // Change topic approach
+      () => {
+        const qItem = pickQB('fun');
+        return {response:pick([
+          R(`That's totally fine${nameTag()}! Nobody knows everything, not even puppies! 😄 Let me ask you something different: ${qItem.q}`,
+            `没关系${nameTag()}！谁也不是什么都知道，连小狗也不知道呢！😄 来个不一样的问题：${qItem.q}`),
+          R(`No worries at all! Let's try a fun one instead — ${qItem.q}`,
+            `完全没关系！来试试一个有趣的——${qItem.q}`),
+        ]), quickReplies:["Hmm, let me think...","I know!","Tell me something else!"]};
+      },
+      // Encourage to try again approach
+      () => {
+        return {response:pick([
+          R(`Hey, it's OK not to know! That's how we learn! 🐶 Want me to give you a hint, or try a different question?`,
+            `嘿，不知道也没关系！这就是学习的方式！🐶 要我给你提示，还是换个问题？`),
+          R(`That's a great answer too! "I don't know" is the first step to learning something new! ⭐ What would you like to learn about?`,
+            `这也是个好回答！"不知道"是学习新东西的第一步！⭐ 你想学什么？`),
+        ]), quickReplies:["Give me a hint!","Try a different question!","Let's play a game!"]};
+      },
+      // Easy redirect approach
+      () => {
+        return {response:pick([
+          R(`Haha, me neither sometimes! 🐾 Let's talk about something fun — what did you eat for breakfast today?`,
+            `哈哈，我有时候也不知道！🐾 聊点有趣的——你今天早餐吃了什么？`),
+          R(`Puppies don't know everything either! 🐶 But we can figure things out together! What's your favorite thing to do on weekends?`,
+            `小狗也不是什么都知道！🐶 但我们可以一起弄明白！你周末最喜欢做什么？`),
+        ]), quickReplies:["I ate...","I like to...","Play a game!"]};
+      },
+    ];
+    return paths[Math.floor(Math.random() * paths.length)]();
   }
 
   // 5. Sorry
@@ -1449,14 +1565,8 @@ function generateResponse2(userText) {
     ]), quickReplies:["OK! Play a game?","What should we talk about?","Tell me something fun!"]};
   }
 
-  // 6. Grammar correction
-  for(const c of CORRECTIONS_V2) if(c.p.test(low)){
-    const fixed=userText.replace(c.p,c.fix);
-    return {response:R(
-      `Oh, small tip: you could say "${fixed}" — ${c.note}. But great try! 🌟`,
-      `小提示：你可以说 "${fixed}" —— ${c.note}。不过你已经很棒了！`
-    ), quickReplies:["Thanks!","Let me try again!","OK!"]};
-  }
+  // 6. Grammar check — now handled by evaluateEnglish() in send()
+  // (Removed inline correction to avoid double-correction; grammar tips appear as gentle suggestions)
 
   // 7. GAME REQUESTS — detect when user wants to play
   if(/\b(play a game|let's play|game time|play something)\b/i.test(low)||/玩游戏/.test(userText)){
@@ -1801,7 +1911,7 @@ function setQuickReplies(items) {
     `<button class="quick-btn" data-i="${i}">${esc(t)}</button>`
   ).join('');
   qrContainer.querySelectorAll('.quick-btn').forEach((btn,i) => {
-    btn.onclick = () => { qrContainer.innerHTML=''; send(items[i]); };
+    btn.onclick = () => { qrContainer.innerHTML=''; send(items[i], true); };
   });
 }
 
@@ -1816,20 +1926,199 @@ function highlight(text) {
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 // ============================================================
+//  TTS UNLOCK — browsers require user interaction before audio plays
+// ============================================================
+let ttsUnlocked = false;
+function unlockTTS() {
+  if (ttsUnlocked || !('speechSynthesis' in window)) return;
+  ttsUnlocked = true;
+  // Play a silent utterance to unlock the audio context
+  const silent = new SpeechSynthesisUtterance(' ');
+  silent.volume = 0.01;
+  silent.rate = 2;
+  if (preferredVoice) silent.voice = preferredVoice;
+  speechSynthesis.speak(silent);
+}
+// Attach unlock to all user interaction events
+['click','touchstart','keydown','touchend'].forEach(evt => {
+  document.addEventListener(evt, unlockTTS, {once: false, passive: true});
+});
+
+// ============================================================
+//  GRAMMAR CHECK — evaluates user's English, provides gentle tips
+// ============================================================
+const GRAMMAR_RULES = [
+  // --- Subject-verb agreement ---
+  {p:/\bi\s+am\s+go\b/i, fix:"I am going", tip:"am 后面用 going 哦", en:"Use 'going' after 'am'"},
+  {p:/\bi\s+goed\b/i, fix:"I went", tip:"go 的过去式是 went", en:"The past tense of 'go' is 'went'"},
+  {p:/\bhe\s+don't\b/i, fix:"he doesn't", tip:"he/she 用 doesn't", en:"Use 'doesn't' with he/she"},
+  {p:/\bshe\s+don't\b/i, fix:"she doesn't", tip:"he/she 用 doesn't", en:"Use 'doesn't' with he/she"},
+  {p:/\bi\s+has\b(?!\s+to)/i, fix:"I have", tip:"I 用 have 不是 has", en:"Use 'have' with I"},
+  {p:/\bmore\s+better\b/i, fix:"better", tip:"better 已经是比较级了", en:"'Better' is already comparative"},
+  {p:/\bhe\s+have\b/i, fix:"he has", tip:"he/she 用 has", en:"Use 'has' with he/she"},
+  {p:/\bshe\s+have\b/i, fix:"she has", tip:"he/she 用 has", en:"Use 'has' with she"},
+  {p:/\bi\s+is\b/i, fix:"I am", tip:"I 用 am 不是 is", en:"Use 'am' with I"},
+  {p:/\bthey\s+is\b/i, fix:"they are", tip:"they 用 are", en:"Use 'are' with they"},
+  {p:/\bdoesn't\s+likes\b/i, fix:"doesn't like", tip:"doesn't 后面动词不加 s", en:"No 's' after 'doesn't'"},
+  {p:/\bdidn't\s+went\b/i, fix:"didn't go", tip:"didn't 后面用动词原形", en:"Use base form after 'didn't'"},
+  {p:/\bcan\s+swimming\b/i, fix:"can swim", tip:"can 后面用动词原形", en:"Use base form after 'can'"},
+  {p:/\bI\s+didn't\s+knew\b/i, fix:"I didn't know", tip:"didn't 后面用动词原形", en:"Use base form after 'didn't'"},
+  {p:/\bhe\s+can\s+plays\b/i, fix:"he can play", tip:"can 后面用动词原形", en:"Use base form after 'can'"},
+  {p:/\bmy\s+name\s+[a-z]+\b(?!\s+is)/i, fix:"my name is ...", tip:"别忘加 is 哦", en:"Don't forget 'is'"},
+  // --- Articles ---
+  {p:/\bi\s+like\s+a\s+dog\b/i, fix:"I like dogs", tip:"表达喜好一般用复数", en:"Use plural for preferences: 'I like dogs'"},
+  {p:/\bi\s+have\s+cat\b/i, fix:"I have a cat", tip:"单数名词前要加 a", en:"Add 'a' before singular nouns"},
+  {p:/\bplay\s+a\s+football\b/i, fix:"play football", tip:"球类运动不加 a", en:"Sports don't need 'a'"},
+  {p:/\bplay\s+a\s+basketball\b/i, fix:"play basketball", tip:"球类运动不加 a", en:"Sports don't need 'a'"},
+  // --- Prepositions ---
+  {p:/\bgood\s+in\b/i, fix:"good at", tip:"擅长用 good at", en:"Use 'good at' not 'good in'"},
+  {p:/\binterested\s+for\b/i, fix:"interested in", tip:"对...感兴趣用 in", en:"Use 'interested in'"},
+  {p:/\blisten\s+music\b/i, fix:"listen to music", tip:"listen 后面加 to", en:"Use 'listen to music'"},
+  {p:/\bwait\s+me\b/i, fix:"wait for me", tip:"wait 后面加 for", en:"Use 'wait for me'"},
+  {p:/\blook\s+the\s+picture\b/i, fix:"look at the picture", tip:"look 后面加 at", en:"Use 'look at'"},
+  // --- Tense errors ---
+  {p:/\bi\s+yesterday\s+go\b/i, fix:"I went yesterday", tip:"昨天用过去式 went", en:"Use 'went' for yesterday"},
+  {p:/\byesterday\s+i\s+go\b/i, fix:"Yesterday I went", tip:"yesterday 用过去式", en:"Use past tense with 'yesterday'"},
+  {p:/\bi\s+am\s+play\b/i, fix:"I am playing", tip:"正在做用 -ing", en:"Use 'playing' for right now"},
+  {p:/\bshe\s+is\s+eat\b/i, fix:"she is eating", tip:"正在做用 eating", en:"Use 'eating' for right now"},
+  {p:/\bthey\s+was\b/i, fix:"they were", tip:"they 的过去式是 were", en:"Use 'were' with they"},
+  {p:/\bwe\s+was\b/i, fix:"we were", tip:"we 的过去式是 were", en:"Use 'were' with we"},
+  {p:/\bi\s+was\s+eat\b/i, fix:"I was eating", tip:"过去进行时用 eating", en:"Use 'eating' with 'was'"},
+  // --- Plurals ---
+  {p:/\bmany\s+child\b/i, fix:"many children", tip:"child 复数是 children", en:"Plural of 'child' is 'children'"},
+  {p:/\bmany\s+person\b/i, fix:"many people", tip:"person 复数是 people", en:"Plural of 'person' is 'people'"},
+  {p:/\bmany\s+tooth\b/i, fix:"many teeth", tip:"tooth 复数是 teeth", en:"Plural of 'tooth' is 'teeth'"},
+  {p:/\bmany\s+foot\b/i, fix:"many feet", tip:"foot 复数是 feet", en:"Plural of 'foot' is 'feet'"},
+  {p:/\bmany\s+mouse\b/i, fix:"many mice", tip:"mouse 复数是 mice", en:"Plural of 'mouse' is 'mice'"},
+  // --- Common ESL mistakes ---
+  {p:/\bhow\s+much\s+books\b/i, fix:"how many books", tip:"可数用 how many", en:"Use 'how many' for countable things"},
+  {p:/\bhow\s+much\s+people\b/i, fix:"how many people", tip:"people 是可数的", en:"Use 'how many' with people"},
+  {p:/\bmore\s+easy\b/i, fix:"easier", tip:"easy 的比较级是 easier", en:"Use 'easier' not 'more easy'"},
+  {p:/\bmost\s+good\b/i, fix:"best", tip:"good 的最高级是 best", en:"Use 'best' not 'most good'"},
+  {p:/\bmore\s+good\b/i, fix:"better", tip:"good 的比较级是 better", en:"Use 'better' not 'more good'"},
+  {p:/\bfunner\b/i, fix:"more fun", tip:"fun 的比较级是 more fun", en:"Use 'more fun' not 'funner'"},
+  {p:/\bi\s+am\s+boring\b/i, fix:"I am bored", tip:"boring 形容事物，bored 形容人", en:"'Bored' for feelings, 'boring' for things"},
+  {p:/\bi\s+am\s+interesting\s+in\b/i, fix:"I am interested in", tip:"interested in 表示感兴趣", en:"Use 'interested in' for feelings"},
+  {p:/\bvery\s+much\s+like\b/i, fix:"really like", tip:"非常用 really 更自然", en:"'Really like' sounds more natural"},
+  {p:/\bi\s+want\s+eat\b/i, fix:"I want to eat", tip:"want 后面加 to", en:"Use 'want to' + verb"},
+  {p:/\bi\s+need\s+go\b/i, fix:"I need to go", tip:"need 后面加 to", en:"Use 'need to' + verb"},
+  {p:/\blet\s+i\b/i, fix:"let me", tip:"let 后面用 me", en:"Use 'let me' not 'let I'"},
+  {p:/\bcan\s+i\s+helps\b/i, fix:"can I help", tip:"can 后面用原形", en:"Use base form after 'can'"},
+  {p:/\bthere\s+is\s+many\b/i, fix:"there are many", tip:"many 用 there are", en:"Use 'there are' with many"},
+  {p:/\bhe\s+sayed\b/i, fix:"he said", tip:"say 的过去式是 said", en:"Past tense of 'say' is 'said'"},
+  {p:/\bi\s+runned\b/i, fix:"I ran", tip:"run 的过去式是 ran", en:"Past tense of 'run' is 'ran'"},
+  {p:/\bwe\s+eated\b/i, fix:"we ate", tip:"eat 的过去式是 ate", en:"Past tense of 'eat' is 'ate'"},
+  {p:/\bi\s+maked\b/i, fix:"I made", tip:"make 的过去式是 made", en:"Past tense of 'make' is 'made'"},
+  {p:/\bshe\s+teached\b/i, fix:"she taught", tip:"teach 的过去式是 taught", en:"Past tense of 'teach' is 'taught'"},
+  {p:/\bi\s+thinked\b/i, fix:"I thought", tip:"think 的过去式是 thought", en:"Past tense of 'think' is 'thought'"},
+  {p:/\bwe\s+buyed\b/i, fix:"we bought", tip:"buy 的过去式是 bought", en:"Past tense of 'buy' is 'bought'"},
+];
+
+// Score user's English and generate encouraging feedback
+function evaluateEnglish(userText) {
+  if (!userText || userText.trim().length < 2) return null;
+  const low = userText.toLowerCase();
+  const wordCount = userText.split(/\s+/).filter(w => w.length > 0).length;
+
+  // Skip very short responses (yes/no/ok) — not enough to evaluate
+  if (wordCount <= 2 && /^\s*(yes|no|ok|okay|yeah|nope|sure|hi|hello|bye|thanks|cool|nice|wow|hm+|uh+h+|oh)\s*$/i.test(userText))
+    return null;
+
+  // Check grammar rules
+  const errors = [];
+  for (const rule of GRAMMAR_RULES) {
+    if (rule.p.test(low)) {
+      errors.push(rule);
+    }
+  }
+
+  // If errors found, return a gentle correction
+  if (errors.length > 0) {
+    const err = errors[0]; // Just show the first error to avoid overwhelming
+    const corrected = userText.replace(err.p, err.fix);
+    // Vary the feedback style
+    const templates = [
+      {en:`💡 **Grammar tip**: Try saying "${corrected}"! ${err.en}. You're doing great!`,
+       zh:`💡 **语法小提示**：试试说 "${corrected}"！${err.tip}。你已经很棒了！`},
+      {en:`💡 Quick fix: "${corrected}" — ${err.en}. Keep practicing!`,
+       zh:`💡 小修正："${corrected}" —— ${err.tip}。继续加油！`},
+      {en:`💡 Hey, small tip! Instead of that, try: "${corrected}" — ${err.en}. Your English is getting better!`,
+       zh:`💡 小提示！可以这样说："${corrected}" —— ${err.tip}。你的英语越来越好了！`},
+    ];
+    const t = templates[Math.floor(Math.random() * templates.length)];
+    return {type: 'correction', ...t};
+  }
+
+  // No errors — praise based on sentence length/complexity
+  if (wordCount >= 8) {
+    const praises = [
+      {en:"⭐ Great sentence! Your English is really impressive!", zh:"⭐ 好句子！你的英语真的很棒！"},
+      {en:"⭐ Wow, that was a wonderful sentence! Very natural!", zh:"⭐ 哇，这句话太棒了！非常自然！"},
+      {en:"⭐ Excellent English! You speak like a native! Keep it up!", zh:"⭐ 英语太棒了！说得像母语者一样！继续保持！"},
+      {en:"⭐ Perfect grammar! You're really good at English!", zh:"⭐ 语法完美！你英语真的很厉害！"},
+    ];
+    const p = praises[Math.floor(Math.random() * praises.length)];
+    return {type: 'praise', ...p};
+  }
+  if (wordCount >= 5) {
+    // Occasionally praise medium-length correct sentences
+    if (Math.random() > 0.6) {
+      const praises = [
+        {en:"⭐ Nice sentence! That's correct English!", zh:"⭐ 好句子！这是正确的英语！"},
+        {en:"⭐ Good job! Your grammar is correct!", zh:"⭐ 做得好！你的语法是正确的！"},
+      ];
+      const p = praises[Math.floor(Math.random() * praises.length)];
+      return {type: 'praise', ...p};
+    }
+  }
+  return null; // No feedback needed
+}
+
+// ============================================================
 //  SEND MESSAGE
 // ============================================================
-function send(text) {
+function send(text, isQuickReply) {
   if (!text.trim()) return;
   addUserMsg(text);
   qrContainer.innerHTML = '';
 
   const result = generateResponse2(text);
+
+  // Grammar evaluation — only for user's own words (not quick reply buttons), skip during games
+  const inGame = guessState || gameMode;
+  const grammarTip = (isQuickReply || inGame) ? null : evaluateEnglish(text);
+
   setTimeout(() => {
+    // Main response
     addAiMsg(result.response.en, result.response.zh);
+
+    // Grammar tip as a separate small message (after main response, with delay)
+    if (grammarTip && grammarTip.en) {
+      setTimeout(() => {
+        addGrammarTip(grammarTip);
+      }, 1200);
+    }
+
     if (result.quickReplies && result.quickReplies.length) {
       setTimeout(() => setQuickReplies(result.quickReplies), 900);
     }
   }, 200);
+}
+
+// Add a grammar tip message (smaller, styled differently)
+function addGrammarTip(tip) {
+  const row = document.createElement('div');
+  row.className = 'msg-row ai';
+  row.style.animation = 'msgIn .4s cubic-bezier(.34,1.56,.64,1)';
+  row.innerHTML = `<div class="msg-avatar">${codySVG()}</div>
+    <div class="msg-bubble" style="background:linear-gradient(135deg,#FFF8E1,#FFF3CD);border-left:3px solid #FFB300;font-size:13.5px;padding:10px 14px;">
+      <div class="en" style="font-size:14px;font-weight:500;">${tip.en.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</div>
+      ${tip.zh ? `<div class="zh" style="margin-top:3px;">${tip.zh.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</div>` : ''}
+    </div>`;
+  chatArea.appendChild(row);
+  scrollBottom();
+  // Speak the English grammar tip
+  speak(tip.en.replace(/\*\*/g,'').replace(/💡|⭐/g,''));
 }
 
 function handleSend() {
@@ -2101,17 +2390,43 @@ if (savedVoiceName && 'speechSynthesis' in window) {
   `;
   chatArea.appendChild(card);
 
-  // Auto-start greeting via the smart engine — more natural flow
+  // Greeting messages
+  const greetings = [
+    {en:"Hey there! 🐶 I'm Cody, a little teddy puppy — only 4 months old! We can chat, play games, or I can tell you riddles! What's YOUR name?",zh:"嗨！我是Cody，一只小泰迪——才4个月大！我们可以聊天、玩游戏、还可以猜谜语！你叫什么名字？"},
+    {en:"Woof woof! 🐾 I'm Cody! I'm so excited to meet you! We can talk about anything you want — or play fun games! Can you tell me your name?",zh:"汪汪！我是Cody！好兴奋能认识你！想聊什么都行——还能玩有趣的游戏！能告诉我你的名字吗？"},
+    {en:"Hi hi hi! 🐶 I'm Cody! I just woke up from a nap and I'm SO ready for fun! Chat, riddles, games — you pick! What should I call you?",zh:"嗨嗨嗨！我是Cody！我刚午睡醒来，超想玩！聊天、谜语、游戏——你选！我该怎么叫你？"},
+  ];
+  const g = greetings[Math.floor(Math.random()*greetings.length)];
+
+  // Show a "Tap to start" button that unlocks TTS and plays greeting with voice
+  const startBtn = document.createElement('div');
+  startBtn.style.cssText = 'text-align:center;padding:16px;cursor:pointer;';
+  startBtn.innerHTML = '<button style="background:linear-gradient(135deg,#FF6B35,#FF8FAB);color:#fff;border:none;padding:14px 32px;border-radius:25px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 15px rgba(255,107,53,.3);transition:transform .15s;" ontouchstart="" onclick="">🐾 Tap to Start Chatting! 点击开始聊天 🐾</button>';
+  chatArea.appendChild(startBtn);
+  scrollBottom();
+
+  function startChat() {
+    if (startBtn.parentNode) startBtn.remove();
+    // Unlock TTS
+    unlockTTS();
+    // Small delay to let TTS unlock settle, then show greeting with voice
+    setTimeout(() => {
+      addAiMsg(g.en, g.zh);
+      setTimeout(() => setQuickReplies(["My name is...","Play a game!","Hi Cody!"]), 1000);
+    }, 400);
+  }
+
+  startBtn.addEventListener('click', startChat, {once: true});
+  startBtn.addEventListener('touchstart', startChat, {once: true});
+
+  // Auto-fallback: if user doesn't tap within 5 seconds, start without voice
   setTimeout(() => {
-    const greetings = [
-      {en:"Hey there! 🐶 I'm Cody, a little teddy puppy — only 4 months old! We can chat, play games, or I can tell you riddles! What's YOUR name?",zh:"嗨！我是Cody，一只小泰迪——才4个月大！我们可以聊天、玩游戏、还可以猜谜语！你叫什么名字？"},
-      {en:"Woof woof! 🐾 I'm Cody! I'm so excited to meet you! We can talk about anything you want — or play fun games! Can you tell me your name?",zh:"汪汪！我是Cody！好兴奋能认识你！想聊什么都行——还能玩有趣的游戏！能告诉我你的名字吗？"},
-      {en:"Hi hi hi! 🐶 I'm Cody! I just woke up from a nap and I'm SO ready for fun! Chat, riddles, games — you pick! What should I call you?",zh:"嗨嗨嗨！我是Cody！我刚午睡醒来，超想玩！聊天、谜语、游戏——你选！我该怎么叫你？"},
-    ];
-    const g = greetings[Math.floor(Math.random()*greetings.length)];
-    addAiMsg(g.en, g.zh);
-    setTimeout(() => setQuickReplies(["My name is...","Play a game!","Hi Cody!"]), 1000);
-  }, 1200);
+    if (startBtn.parentNode) {
+      startBtn.remove();
+      addAiMsg(g.en, g.zh);
+      setTimeout(() => setQuickReplies(["My name is...","Play a game!","Hi Cody!"]), 1000);
+    }
+  }, 8000);
 })();
 </script>
 </body>

@@ -943,6 +943,11 @@ function generateResponse(userText) {
 
 // --- Conversation memory ---
 const CTX = { name:'', mood:'', likes:[], lastTopics:[], history:[], turnCount:0 };
+const askedQuestions = []; // anti-repetition: track every question Cody asks
+
+// Global helpers for game functions
+const R = (en,zh) => ({en,zh});
+const nameTag = () => CTX.name ? `, ${CTX.name}` : '';
 
 // --- Grammar corrections (gentle, implicit) ---
 const CORRECTIONS_V2 = [
@@ -1025,23 +1030,287 @@ const PUPPY_A = {
   trick:   [{en:"I can sit, shake paws, and roll over! Want me to show you? ...Woof! 🐶",zh:"我会坐、握手、打滚！要我表演给你看吗？……汪！"}],
 };
 
-// --- Follow-up questions (topic-linked, for natural flow) ---
+// --- Follow-up questions (massively expanded — 8-12 per topic) ---
 const FOLLOWUPS = {
-  food:     ["What did you eat today? 🍽️","Do you like cooking or does someone cook for you? 👨‍🍳","If you could eat anything right now, what would it be? 🤔"],
-  hobby:    ["What do you do when you have free time? 🎮","Have you tried any new hobbies lately? ✨","What's the most fun thing you've done this week? 🎉"],
-  school:   ["What grade are you in? 🏫","What's your favorite subject? 📚","What do you do during break time? ⏰"],
-  family:   ["Tell me about your family! 👨‍👩‍👧‍👦","Do you have brothers or sisters? 👫","What does your family do together on weekends? 🏠"],
-  animal:   ["What's your favorite animal? 🐾","Do you have a pet? 🏠","If you could be any animal, what would you be? 🦊"],
-  sport:    ["What sports do you like? ⚽","Do you exercise every day? 🏃","Who's your favorite athlete? 🏆"],
-  music:    ["What kind of music do you like? 🎵","Can you play any instrument? 🎸","What song is stuck in your head right now? 🎶"],
-  travel:   ["Have you been anywhere fun lately? ✈️","Where do you dream of going? 🌍","Beach or mountains — which do you prefer? 🏖️"],
-  friend:   ["Tell me about your best friend! 👫","What makes a good friend? 💭","What do you and your friends do for fun? 🎉"],
-  color:    ["What's your favorite color? 🎨","What color is your room? 🏠","If you could paint anything, what would you paint? 🖌️"],
-  weather:  ["How's the weather today? ☀️","What's your favorite season? 🍂","Do you like rainy days? 🌧️"],
-  dream:    ["What do you want to be when you grow up? 🌟","If you could have any superpower, what would it be? ⚡","What's your biggest dream? 💭"],
-  feeling:  ["How are you feeling today? 💛","What made you happy recently? 😊","What do you do when you feel bored? 🤔"],
-  general:  ["By the way, what do you like to do for fun? 🎮","Oh! What's your favorite food? I'm always curious! 🍕","Tell me something cool about your day! 🌟","Do you have any pets? I love hearing about other animals! 🐾","What did you do this morning? ☀️"],
+  food: [
+    "What did you eat for breakfast today? 🍳","What's the yummiest snack ever? 🍪",
+    "If you could only eat one food forever, what would it be? 🤔","Do you like sweet food or salty food more? 🧂",
+    "What's a food you really don't like? 🤢","Have you ever tried to cook something? What happened? 👨‍🍳",
+    "What does your family usually eat for dinner? 🍽️","If you opened a restaurant, what would you serve? 🏪",
+    "What's the weirdest food you've ever tried? 🦗","Do you like ice cream? What flavor is the best? 🍦",
+    "What food makes you happy just thinking about it? 😋","Can you name three fruits in English? 🍎🍌🍇",
+  ],
+  hobby: [
+    "What do you do when you have free time? 🎮","Have you tried any new hobbies lately? ✨",
+    "What's the most fun thing you've done this week? 🎉","Do you like drawing or painting? What do you draw? 🎨",
+    "Can you teach me a cool hobby? 🌟","Do you like building things, like Lego? 🧱",
+    "What's a hobby you wish you could try? 💭","Do you collect anything? Like stickers or cards? 🃏",
+    "If you had a whole day to do anything, what would you do? ☀️","Do you prefer indoor hobbies or outdoor activities? 🏠🌳",
+    "Have you ever made something with your hands? What was it? ✋","What game are you really good at? 🎯",
+  ],
+  school: [
+    "What grade are you in? 🏫","What's your favorite subject in school? 📚",
+    "What do you do during break time? ⏰","Do you have a favorite teacher? What do they teach? 👩‍🏫",
+    "What subject is the hardest for you? 🤔","Do you like homework or not? Why? 📝",
+    "What's the best thing that happened at school this week? 🌟","Do you study with friends or alone? 👫",
+    "If you could change one thing about school, what would it be? 💭","What do you want to learn that school doesn't teach? 🧠",
+    "Do you like reading books? What kind? 📖","Tell me about your classroom — what does it look like? 🏫",
+  ],
+  family: [
+    "Tell me about your family! 👨‍👩‍👧‍👦","Do you have brothers or sisters? 👫",
+    "What does your family do together on weekends? 🏠","Who in your family is the funniest? 😄",
+    "What's your favorite thing to do with your parents? 👨‍👩‍👧","Do you have any cousins you play with? 👦👧",
+    "Does your family have any special traditions? 🎊","What does your mom or dad do for work? 💼",
+    "Who cooks the best food in your family? 🍳","What's the best trip your family ever took? ✈️",
+    "If your family had a team name, what would it be? 🏆","Who are you most similar to in your family? 🪞",
+  ],
+  animal: [
+    "What's your favorite animal? 🐾","Do you have a pet? What's it like? 🏠",
+    "If you could be any animal, what would you be? 🦊","What animal do you think is the funniest looking? 😂",
+    "Have you ever been to a zoo? What did you see? 🦁","What's the biggest animal you've ever seen in real life? 🐘",
+    "If you could have ANY animal as a pet, even a dinosaur, what would you pick? 🦕",
+    "Do you like bugs? What's the coolest bug? 🐛","What animal sound do you think is the weirdest? 🔊",
+    "Can you name five animals in English? Let's try! 🐶🐱🐰🐻🐼","Do you think fish get bored swimming all day? 🐟",
+  ],
+  sport: [
+    "What sports do you like? ⚽","Do you exercise every day? 🏃",
+    "Who's your favorite athlete? 🏆","Can you swim? Is it fun? 🏊",
+    "What sport would you like to learn? 🎾","Do you watch sports on TV? What's exciting? 📺",
+    "Have you ever won a game or competition? 🥇","What sport do you think is the hardest? 💪",
+    "Do you like team sports or solo sports better? 👥","If you invented a new sport, what would it be like? 🆕",
+    "Can you ride a bike? Where do you ride? 🚲","Do you like running? How fast can you go? 🏃💨",
+  ],
+  music: [
+    "What kind of music do you like? 🎵","Can you play any instrument? 🎸",
+    "What song is stuck in your head right now? 🎶","Do you like singing? What's your favorite song to sing? 🎤",
+    "If you started a band, what would you call it? 🎸","What instrument do you wish you could play? 🎹",
+    "Do you like fast songs or slow songs? 🎵","What music does your family listen to? 📻",
+    "Have you ever been to a concert? 🎪","If you could meet any musician, who would it be? ⭐",
+    "Can you make up a short song right now? Try it! 🎼","What song always makes you want to dance? 💃",
+  ],
+  travel: [
+    "Have you been anywhere fun lately? ✈️","Where do you dream of going? 🌍",
+    "Beach or mountains — which do you prefer? 🏖️","What's the coolest place you've ever visited? 🏰",
+    "If you could teleport anywhere right now, where? ⚡","Do you like long trips or short trips? 🧳",
+    "What's the best souvenir you've ever gotten? 🎁","Have you ever been on an airplane? What was it like? ✈️",
+    "What country would you love to visit? Why? 🗺️","Do you prefer the city or the countryside? 🏙️🌾",
+    "What would you pack in your dream backpack? 🎒","If you went to space, what would you look for? 🚀",
+  ],
+  friend: [
+    "Tell me about your best friend! 👫","What makes someone a really good friend? 💭",
+    "What do you and your friends do for fun? 🎉","How did you meet your best friend? 🤝",
+    "Do you have friends at school and friends outside school? 🏫","What's the nicest thing a friend ever did for you? 💛",
+    "Have you ever had a fight with a friend? What happened? 😔","Do you like having lots of friends or just a few close ones? 👥",
+    "What's your favorite game to play with friends? 🎮","If your friend was sad, what would you do to help? 🤗",
+    "Can you describe your best friend in three English words? 📝","What nickname do your friends call you? 😄",
+  ],
+  color: [
+    "What's your favorite color? 🎨","What color is your room? 🏠",
+    "If you could paint anything, what would you paint? 🖌️","What color makes you feel happy? 😊",
+    "Do you like bright colors or dark colors? 🌈","What color clothes do you like to wear? 👕",
+    "If everything in the world was one color, what color? 🌍","Can you name five colors in English? 🎨",
+    "What color is your favorite toy? 🧸","What color would a puppy like me be painted? 🐶🎨",
+  ],
+  weather: [
+    "How's the weather today? ☀️","What's your favorite season? 🍂",
+    "Do you like rainy days? What do you do when it rains? 🌧️","What's the weather like where you live right now? 🌡️",
+    "Do you like snow? Have you ever made a snowman? ☃️","If you could control the weather, what would you make it? 🌤️",
+    "What do you wear when it's really cold? 🧣","Do you like thunderstorms? Are they scary or cool? ⛈️",
+    "What season has the best food? 🍉","What's your favorite thing about summer? 🌞",
+  ],
+  dream: [
+    "What do you want to be when you grow up? 🌟","If you could have any superpower, what would it be? ⚡",
+    "What's your biggest dream? 💭","If you had a million dollars, what would you do? 💰",
+    "If you could invent something, what would it be? 🔧","What would you do if you were invisible for a day? 👻",
+    "If you could talk to animals, what would you ask them? 🐾","What's something you really want to learn? 📚",
+    "If you had your own island, what would be on it? 🏝️","What three wishes would you make? 🧞",
+    "If you could time travel, would you go to the past or future? ⏰","What job do you think would be the most fun? 💼",
+  ],
+  feeling: [
+    "How are you feeling today? 💛","What made you happy recently? 😊",
+    "What do you do when you feel bored? 🤔","What always makes you laugh? 😂",
+    "When was the last time you felt really proud? 🏆","What makes you feel brave? 💪",
+    "If your mood was a weather, what would it be right now? ⛅","What's something that always cheers you up? 🌈",
+    "Do you like being alone or with people? 👥","What's something that surprised you recently? 😮",
+    "What are you most excited about right now? 🎉","If you could change one feeling to another, which one? 💭",
+  ],
+  game: [
+    "Do you want to play a game with me? 🎮","Let's play Would You Rather! Ready? 🤔",
+    "I'm thinking of an animal... can you guess what it is? 🐾","Want to hear a riddle? 🧩",
+    "Can you think of 5 things in your room and name them in English? 🏠","Let's play a word game! Can you name 3 animals that start with the letter 'B'? 🐻",
+    "If I gave you a magic wand, what's the first thing you'd do? 🪄","Want to hear a fun fact about puppies? 🐶",
+    "Let's make up a story together! You start! 📖","Can you describe something near you without saying its name? I'll guess! 🤔",
+  ],
+  story: [
+    "Once upon a time, there was a puppy who... what happened next? 📖","If you wrote a book, what would it be about? 📚",
+    "What's the best story you've ever heard? 🌟","Can you make up a story about a flying cat? 🐱✈️",
+    "If your toys could talk, what would they say? 🧸","What would happen if dogs could drive cars? 🚗🐶",
+    "Tell me a story with three words: puppy, rainbow, and pizza! 🐶🌈🍕",
+    "If you were the hero of a story, what would your adventure be? 🦸","What's your favorite fairy tale or story? 📖",
+    "Imagine you found a magic door — where does it lead? 🚪✨",
+  ],
+  general: [
+    "What do you like to do for fun? 🎮","What's your favorite food? I'm always curious! 🍕",
+    "Tell me something cool about your day! 🌟","Do you have any pets? I love hearing about other animals! 🐾",
+    "What did you do this morning? ☀️","What's the last funny thing that happened to you? 😂",
+    "If you could learn anything new, what would it be? 📚","What makes you really really happy? 😊",
+    "What's your favorite day of the week? Why? 📅","Do you like surprises? What's the best surprise you ever got? 🎁",
+    "Tell me something most people don't know about you! 🤫","What's something you're really good at? 💪",
+    "What did you dream about last night? 💭","If you could talk to anyone in the world, who? 🌍",
+    "What's the bravest thing you've ever done? 🦁","Can you say something nice about yourself? I'll go first — you're amazing! ⭐",
+  ],
 };
+
+// --- MASSIVE QUESTION BANK for dynamic conversation (200+ prompts) ---
+const QBANK = [
+  // Would You Rather
+  {type:"wyr", q:"Would you rather fly like a bird or swim like a fish? 🐦🐟"},
+  {type:"wyr", q:"Would you rather have a dragon or a unicorn as a pet? 🐉🦄"},
+  {type:"wyr", q:"Would you rather eat only pizza or only ice cream for a week? 🍕🍦"},
+  {type:"wyr", q:"Would you rather be super strong or super fast? 💪⚡"},
+  {type:"wyr", q:"Would you rather live underwater or in the clouds? 🌊☁️"},
+  {type:"wyr", q:"Would you rather be invisible or be able to read minds? 👻🧠"},
+  {type:"wyr", q:"Would you rather always be warm or always be cool? ☀️❄️"},
+  {type:"wyr", q:"Would you rather have a robot friend or a talking dog? 🤖🐕"},
+  {type:"wyr", q:"Would you rather eat a bug or eat a whole lemon? 🐛🍋"},
+  {type:"wyr", q:"Would you rather have no homework or have shorter school days? 📝🏫"},
+  {type:"wyr", q:"Would you rather time travel to see dinosaurs or see the future? 🦕🚀"},
+  {type:"wyr", q:"Would you rather be the funniest person or the smartest person? 😂🧠"},
+  // Fun hypotheticals
+  {type:"fun", q:"If animals could talk, which one would be the rudest? 😂"},
+  {type:"fun", q:"If you could shrink anything to pocket size, what would it be? 🔍"},
+  {type:"fun", q:"If your house was made of food, what food would you choose? 🏠🍕"},
+  {type:"fun", q:"If you found a treasure chest in your backyard, what would be inside? 💎"},
+  {type:"fun", q:"If you could create a new holiday, what would people do on that day? 🎊"},
+  {type:"fun", q:"If you had a magic pencil that made things real, what would you draw first? ✏️"},
+  {type:"fun", q:"If you were the president for one day, what rule would you make? 🏛️"},
+  {type:"fun", q:"If colors had flavors, what flavor would blue be? 🔵🍬"},
+  {type:"fun", q:"If your pet could text you, what would they say? 📱🐾"},
+  {type:"fun", q:"If you could grow anything in your garden, even candy, what would you grow? 🌱🍭"},
+  // Riddles
+  {type:"riddle", q:"I have keys but no locks. I have space but no room. You can enter but you can't go inside. What am I? 🤔", a:"A keyboard!"},
+  {type:"riddle", q:"I'm tall when I'm young and short when I'm old. What am I? 🕯️", a:"A candle!"},
+  {type:"riddle", q:"What has hands but can't clap? ⏰", a:"A clock!"},
+  {type:"riddle", q:"What has a head and a tail but no body? 🪙", a:"A coin!"},
+  {type:"riddle", q:"What gets wetter the more it dries? 💧", a:"A towel!"},
+  {type:"riddle", q:"What goes up but never comes down? 📈", a:"Your age!"},
+  {type:"riddle", q:"I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I? 🗺️", a:"A map!"},
+  // Fun facts / Did you know
+  {type:"fact", q:"Did you know that puppies sleep 18-20 hours a day? That's way more than you! 😴 How many hours do YOU sleep?"},
+  {type:"fact", q:"Did you know that dolphins sleep with one eye open? That's so cool! 🐬 What animal fact do you know?"},
+  {type:"fact", q:"Did you know that honey never goes bad? You could eat 3000-year-old honey! 🍯 What's the oldest thing in your house?"},
+  {type:"fact", q:"Did you know that octopuses have three hearts? 🐙 If you had three hearts, who would you give them to?"},
+  {type:"fact", q:"Did you know that a group of flamingos is called a 'flamboyance'? 🦩 What's the funniest word you know?"},
+  {type:"fact", q:"Did you know that cows have best friends and get sad when separated? 🐄🐄 Do you have a best friend at school?"},
+  // Story starters
+  {type:"story", q:"Let's make a story! I'll start: One day, a little puppy found a mysterious door in the garden... What happened next? 🚪"},
+  {type:"story", q:"Story time! A kid found a glowing rock in the playground and suddenly... what? ✨"},
+  {type:"story", q:"Let's create a story together! The spaceship landed in the school yard and out came... 👽"},
+  {type:"story", q:"Imagine this: You woke up one morning and discovered you could understand what animals say! What did your pet (or a nearby animal) say first? 🐾"},
+  // Word challenges
+  {type:"word", q:"Word challenge! Can you name 5 things in your kitchen in English? Go! 🍳"},
+  {type:"word", q:"Quick! Name 4 animals that can fly! You have 10 seconds! 🐦"},
+  {type:"word", q:"Can you say the alphabet backwards from Z to T? Let's try! 🔤"},
+  {type:"word", q:"Name 3 things that are red, 3 things that are blue, and 3 things that are yellow! 🎨"},
+  {type:"word", q:"English challenge: Can you use the word 'beautiful' in a sentence? 💎"},
+  {type:"word", q:"Can you spell your name in English? Let me hear it letter by letter! ✏️"},
+  // Deep questions (kid-friendly)
+  {type:"deep", q:"What do you think makes someone a really good person? 💛"},
+  {type:"deep", q:"If you could change one thing about the world, what would it be? 🌍"},
+  {type:"deep", q:"What's something you believe in really strongly? 💪"},
+  {type:"deep", q:"What does being brave mean to you? 🦁"},
+  {type:"deep", q:"What do you think is the most important thing to learn in life? 📚"},
+  {type:"deep", q:"If everyone in the world was the same, would that be good or bad? Why? 🤔"},
+];
+
+// --- Mini-game state ---
+let gameMode = null; // null, 'wyr', 'riddle', 'story', 'guess'
+let gameData = null;
+let qbUsed = [];
+
+function pickQB(type) {
+  const pool = QBANK.filter(q => q.type === type && !qbUsed.includes(QBANK.indexOf(q)));
+  if (pool.length === 0) { qbUsed = qbUsed.filter(i => QBANK[i].type !== type); return pickQB(type); }
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  qbUsed.push(QBANK.indexOf(item));
+  return item;
+}
+
+// --- Guess the animal game ---
+const ANIMAL_CLUES = [
+  {clues:["I'm very big and grey","I have a long nose called a trunk","I live in Africa or Asia"], answer:"elephant"},
+  {clues:["I'm orange and black","I'm the king of the jungle","I have a big mane"], answer:"lion"},
+  {clues:["I can fly","I'm very colorful","I love flowers"], answer:"butterfly"},
+  {clues:["I live in the ocean","I'm very smart","I can jump high"], answer:"dolphin"},
+  {clues:["I have eight legs","I can spin a web","I'm small and scary to some people"], answer:"spider"},
+  {clues:["I'm black and white","I eat bamboo","I live in China"], answer:"panda"},
+  {clues:["I have no legs","I slither on the ground","Some people are scared of me"], answer:"snake"},
+  {clues:["I'm very small","I make honey","I can sting you"], answer:"bee"},
+  {clues:["I'm red and I live in water","I have a big tail","People keep me in bowls"], answer:"goldfish"},
+  {clues:["I sleep upside down","I fly at night","I use sound to find things"], answer:"bat"},
+];
+let guessState = null;
+
+function startGuessGame() {
+  const animal = ANIMAL_CLUES[Math.floor(Math.random() * ANIMAL_CLUES.length)];
+  guessState = {animal, clueIdx: 0};
+  return R(
+    `Let's play Guess the Animal! 🐾 Here's your first clue: "${animal.clues[0]}" Can you guess what animal I am?`,
+    `来玩猜动物游戏！🐾 第一个线索："${animal.clues[0]}" 你猜我是什么动物？`
+  );
+}
+
+function handleGuess(text) {
+  const low = text.toLowerCase();
+  if (!guessState) return null;
+  if (low.includes(guessState.animal.answer)) {
+    const a = guessState.animal.answer;
+    guessState = null;
+    return R(
+      `YES! It's a ${a}! You're so smart${nameTag()}! 🎉🐾 Want to play again or talk about something else?`,
+      `对啦！是${a}！你好聪明${nameTag()}！🎉🐾 再玩一次还是聊别的？`
+    );
+  }
+  guessState.clueIdx++;
+  if (guessState.clueIdx < guessState.animal.clues.length) {
+    return R(
+      `Not quite! Here's another clue: "${guessState.animal.clues[guessState.clueIdx]}" Try again! 🤔`,
+      `不太对！再来一个线索："${guessState.animal.clues[guessState.clueIdx]}" 再试试！🤔`
+    );
+  }
+  const a = guessState.animal.answer;
+  guessState = null;
+  return R(
+    `The answer was: ${a}! It was a tricky one! Want to try another? 🐾`,
+    `答案是：${a}！这个有点难！要再试一个吗？🐾`
+  );
+}
+
+// --- Would You Rather follow-ups ---
+const WYR_REACTIONS = {
+  first: ["Haha, great choice! I'd pick the same thing! 😄","Ooh interesting! Tell me why you chose that! 🤔","That's what I expected! You have good taste! ⭐","Wow, bold choice! I respect that! 💪"],
+  second: ["Oh wow, the second one? That's unique! 🌟","Interesting! Most people pick the first one! 🤔","Cool! I like how you think! 😊","That's a creative choice! I love it! ✨"],
+  both: ["Haha both are good! You're right, they're both awesome! 😄"],
+};
+
+// --- Pick a unique follow-up question (global anti-repeat) ---
+let globalAskedQ = [];
+function pickFu(topic) {
+  const pool = FOLLOWUPS[topic] || FOLLOWUPS.general;
+  const unused = pool.filter(q => !globalAskedQ.includes(q));
+  if (unused.length > 0) {
+    const q = unused[Math.floor(Math.random() * unused.length)];
+    globalAskedQ.push(q);
+    if (globalAskedQ.length > 80) globalAskedQ = globalAskedQ.slice(-40); // keep last 40
+    return q;
+  }
+  // Pool exhausted for this topic — try general or reset
+  if (topic !== 'general') return pickFu('general');
+  globalAskedQ = []; // full reset
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  globalAskedQ.push(q);
+  return q;
+}
 
 // --- Acknowledgments that reference user content ---
 const ACKS = {
@@ -1099,7 +1368,7 @@ function pickFallback(){
   fbUsed.push(i); return SMART_FB[i];
 }
 
-// --- MAIN: generateResponse2 (replaces old generateResponse) ---
+// --- MAIN: generateResponse2 (upgraded v3 — games, QBANK, smarter) ---
 function generateResponse2(userText) {
   const low = userText.toLowerCase().trim();
   CTX.turnCount++;
@@ -1109,20 +1378,49 @@ function generateResponse2(userText) {
   const pick = a => a[Math.floor(Math.random()*a.length)];
   const nameTag = () => CTX.name ? `, ${CTX.name}` : '';
 
+  // 0. GAME STATE — handle ongoing games first
+  if (guessState) {
+    const gr = handleGuess(userText);
+    if (gr) return {response:gr, quickReplies:["Play again!","Let's chat instead","Tell me a riddle!"]};
+  }
+
+  // 0b. Riddle state — user trying to answer
+  if (gameMode === 'riddle' && gameData) {
+    const ans = gameData.a.toLowerCase().replace(/[^a-z ]/g,'');
+    const guess = low.replace(/[^a-z ]/g,'');
+    if (guess.includes(ans) || ans.includes(guess)) {
+      gameMode = null; gameData = null;
+      return {response:R(
+        `YES! That's right! You're so clever${nameTag()}! 🎉 Want another riddle or something else?`,
+        `对啦！你好聪明${nameTag()}！🎉 再来一个谜语还是聊别的？`
+      ), quickReplies:["Another riddle!","Let's play a game!","Let's chat!"]};
+    }
+    // Wrong answer — give hint or reveal
+    gameMode = null;
+    const answer = gameData.a;
+    gameData = null;
+    return {response:R(
+      `The answer was: ${answer}! Tricky one, right? 😄 Want to try another?`,
+      `答案是：${answer}！有点难对吧？😄 要再试一个吗？`
+    ), quickReplies:["Another riddle!","Let's play something else","Tell me a fun fact!"]};
+  }
+
   // 1. Safety
   for(const kw of UNSAFE_V2) if(low.includes(kw)){
+    gameMode = null; guessState = null;
     return {response:pick(REDIRECT_V2), quickReplies:["Sure!","OK, new topic!"]};
   }
 
   // 2. Farewell
   if(/\b(bye|goodbye|see you|good night|goodnight|gotta go|gtg)\b/i.test(low)||/再见|拜拜|晚安/.test(userText)){
-    const byes=[
+    gameMode = null; guessState = null;
+    return {response:pick([
       R(`Bye bye${nameTag()}! You did amazing today! See you next time! 🐶💕`,`拜拜${nameTag()}！你今天超棒！下次见！`),
       R(`Good night! Sweet dreams! I'll be right here, dreaming of our chat! 🌙`,`晚安！好梦！我会在这里，梦到我们的聊天！`),
       R(`See you${nameTag()}! Don't forget — you're awesome at English! ⭐`,`再见${nameTag()}！别忘了——你英语超厉害！`),
-      R(`Aww, leaving already? Okay! My tail will be wagging when you come back! 🐾`,`啊，这就要走了？好吧！你回来的时候我尾巴还会摇的！`),
-    ];
-    return {response:pick(byes), quickReplies:[]};
+      R(`Aww, leaving already? My tail will be wagging when you come back! 🐾`,`这就要走了？你回来的时候我尾巴还会摇的！`),
+      R(`Bye${nameTag()}! Before you go — you know what? You're the best friend a puppy could have! 💛`,`拜拜${nameTag()}！走之前——你知道吗？你是小狗能拥有的最好的朋友！`),
+    ]), quickReplies:[]};
   }
 
   // 3. Thank you
@@ -1131,142 +1429,242 @@ function generateResponse2(userText) {
       R(`You're welcome${nameTag()}! That's what puppy friends are for! 🐶💛`,`不客气${nameTag()}！小狗朋友就是这样的嘛！`),
       R(`No problem at all! I love helping my favorite person! ⭐`,`完全没问题！我最喜欢帮我最爱的人了！`),
       R(`Anytime! Your smile is the best treat for me! 😊`,`随时！你的笑容是给我最好的零食！`),
-    ]), quickReplies:["Let's keep chatting!","Tell me something fun!"]};
+    ]), quickReplies:["Let's keep chatting!","Play a game!","Tell me something fun!"]};
   }
 
-  // 4. "I don't know"
+  // 4. "I don't know" — redirect with a game or fun question
   if(/\b(don't know|dont know|no idea|not sure|idk)\b/i.test(low)||/不知道|不懂/.test(userText)){
+    const qItem = pickQB('fun');
     return {response:pick([
-      R(`That's totally fine! Learning takes time. Here's an easier one — what's your favorite color? 😊`,`没关系！学习需要时间。来个简单的——你最喜欢什么颜色？`),
-      R(`No worries! Even puppies don't know everything! Let's try — do you like animals? 🐾`,`别担心！连小狗也不是什么都知道！试试——你喜欢动物吗？`),
-      R(`It's okay not to know! Let me ask something fun — what food do you like most? 🍕`,`不知道也没事！我问一个好玩的——你最喜欢吃什么？`),
-    ]), quickReplies:["I like blue!","I like dogs!","Pizza is the best!"]};
+      R(`That's totally fine! Let me ask something fun instead... ${qItem.q}`,`没关系！来个有趣的问题吧……${qItem.q}`),
+      R(`No worries! Even puppies don't know everything! How about this: ${qItem.q}`,`别担心！小狗也不是什么都知道！试试这个：${qItem.q}`),
+    ]), quickReplies:["Hmm, let me think...","I know!","Tell me something else!"]};
   }
 
   // 5. Sorry
   if(/\b(sorry|oops|my bad)\b/i.test(low)||/对不起|抱歉/.test(userText)){
     return {response:pick([
       R(`No need to say sorry${nameTag()}! You're doing great! 💪`,`不用道歉${nameTag()}！你做得很好！`),
-      R(`Hey, puppies make mistakes too! No big deal at all! Let's keep going! 🐶`,`嘿，小狗也会犯错！完全没关系！继续！`),
-    ]), quickReplies:["OK! What should we talk about?","Tell me something fun!"]};
+      R(`Hey, puppies make mistakes too! No big deal! Let's keep going! 🐶`,`小狗也会犯错！完全没关系！继续！`),
+    ]), quickReplies:["OK! Play a game?","What should we talk about?","Tell me something fun!"]};
   }
 
   // 6. Grammar correction
   for(const c of CORRECTIONS_V2) if(c.p.test(low)){
     const fixed=userText.replace(c.p,c.fix);
     return {response:R(
-      `Oh, small tip: you could say "${fixed}" — ${c.note}. But great try! You're learning fast! 🌟`,
-      `小提示：你可以说 "${fixed}" —— ${c.note}。不过你已经很棒了！学得很快！`
-    ), quickReplies:["Thanks for the tip!","Let me try again!","OK!"]};
+      `Oh, small tip: you could say "${fixed}" — ${c.note}. But great try! 🌟`,
+      `小提示：你可以说 "${fixed}" —— ${c.note}。不过你已经很棒了！`
+    ), quickReplies:["Thanks!","Let me try again!","OK!"]};
   }
 
-  // 7. User asks Cody a question
+  // 7. GAME REQUESTS — detect when user wants to play
+  if(/\b(play a game|let's play|game time|play something)\b/i.test(low)||/玩游戏/.test(userText)){
+    const games = ['guess','wyr','riddle','fun','story'];
+    const chosen = pick(games);
+    if (chosen === 'guess') {
+      gameMode = 'guess';
+      const r = startGuessGame();
+      return {response:r, quickReplies:["Is it a dog?","Is it a cat?","Hmm, I need more clues!"]};
+    }
+    if (chosen === 'wyr') {
+      gameMode = 'wyr';
+      const item = pickQB('wyr');
+      return {response:R(
+        `Would You Rather! 🤔 ${item.q}`,
+        `你会选择哪个？🤔 ${item.q}`
+      ), quickReplies:["The first one!","The second one!","Both!"]};
+    }
+    if (chosen === 'riddle') {
+      gameMode = 'riddle';
+      gameData = pickQB('riddle');
+      return {response:R(
+        `Riddle time! 🧩 ${gameData.q}`,
+        `猜谜语！🧩 ${gameData.q}`
+      ), quickReplies:["Hmm, I think I know!","Give me a hint!","I give up!"]};
+    }
+    if (chosen === 'story') {
+      const item = pickQB('story');
+      return {response:R(
+        `Story time! 📖 ${item.q}`,
+        `故事时间！📖 ${item.q}`
+      ), quickReplies:["And then...","Suddenly...","But wait!"]};
+    }
+    const item = pickQB('fun');
+    return {response:R(
+      `Here's a fun one! 🎮 ${item.q}`,
+      `来个有趣的！🎮 ${item.q}`
+    ), quickReplies:["Let me think!","That's easy!","Wow, hard question!"]};
+  }
+
+  // 7b. Specific game requests
+  if(/\b(riddle|guess|brain teaser)\b/i.test(low)){
+    if(/\bguess\b/i.test(low)){
+      gameMode = 'guess';
+      const r = startGuessGame();
+      return {response:r, quickReplies:["Is it a lion?","Is it a bear?","I need more clues!"]};
+    }
+    gameMode = 'riddle';
+    gameData = pickQB('riddle');
+    return {response:R(`Riddle time! 🧩 ${gameData.q}`,`猜谜语！🧩 ${gameData.q}`),
+      quickReplies:["I think I know!","Give me a hint!","Tell me the answer!"]};
+  }
+  if(/\b(would you rather|wyr)\b/i.test(low)){
+    const item = pickQB('wyr');
+    gameMode = 'wyr';
+    return {response:R(`Would You Rather! 🤔 ${item.q}`,`你会选择哪个？🤔 ${item.q}`),
+      quickReplies:["The first one!","The second one!","Both!"]};
+  }
+  if(/\b(story|let's make a story|tell.*story)\b/i.test(low)){
+    const item = pickQB('story');
+    return {response:R(`Let's make a story! 📖 ${item.q}`,`来编故事！📖 ${item.q}`),
+      quickReplies:["And then...","Suddenly...","But wait!"]};
+  }
+  if(/\b(fun fact|did you know|tell me something)\b/i.test(low)){
+    const item = pickQB('fact');
+    return {response:R(item.q, item.q), quickReplies:["Wow really?","Tell me another!","I have a fact too!"]};
+  }
+  if(/\b(challenge|word challenge|word game)\b/i.test(low)){
+    const item = pickQB('word');
+    return {response:R(item.q, item.q), quickReplies:["I did it!","That was hard!","Give me another one!"]};
+  }
+
+  // 7c. Handle Would You Rather answer
+  if (gameMode === 'wyr') {
+    gameMode = null;
+    const choice = /\b(first|one|1|左边|第一个)\b/i.test(low) ? 'first'
+      : /\b(second|two|2|right|右边|第二个)\b/i.test(low) ? 'second'
+      : /\b(both|all|都)\b/i.test(low) ? 'both' : null;
+    const reaction = choice ? pick(WYR_REACTIONS[choice]) : pick(WYR_REACTIONS.first);
+    const nextItem = Math.random() > 0.5 ? pickQB('wyr') : null;
+    const followUp = nextItem ? ` Want another one? Here: ${nextItem.q}` : ' What else should we talk about?';
+    return {response:R(reaction + followUp, reaction),
+      quickReplies: nextItem ? ["The first one!","The second one!"] : ["Play another game!","Tell me a riddle!","Let's chat!"]};
+  }
+
+  // 8. User asks Cody a question — use puppy personality + smart follow-up
   if(/\?$/.test(userText.trim()) || /\b(what|who|where|when|how|why|do you|are you|can you|is it|does)\b/i.test(low)) {
     for(const[kw,arr] of Object.entries(PUPPY_A)){
       if(low.includes(kw)){
         const a=pick(arr);
         const fuTopic=Object.keys(FOLLOWUPS).find(t=>low.includes(t))||'general';
-        const fu=pick(FOLLOWUPS[fuTopic]);
-        return {response:R(a.en+' '+fu, a.zh), quickReplies:["That's cool!","Tell me more!","What about you?"]};
+        const fu=pickFu(fuTopic);
+        return {response:R(a.en+' '+fu, a.zh), quickReplies:["That's cool!","Tell me more!","Play a game!"]};
       }
     }
-    // Generic question handling
     if(/\bhow are you\b/i.test(low))
-      return {response:R(
-        `I'm doing great${nameTag()}! I just had a yummy snack and now I'm chatting with my favorite person! How about you? 😊`,
-        `我很好${nameTag()}！我刚吃了零食，现在在和最喜欢的人聊天！你呢？`
-      ), quickReplies:["I'm good too!","I'm a bit tired","I'm super happy!"]};
+      return {response:pick([
+        R(`I'm doing great${nameTag()}! I just had a yummy snack and now I'm chatting with my favorite person! What about you? 😊`,
+          `我很好${nameTag()}！刚吃了零食，现在在和最喜欢的人聊天！你呢？`),
+        R(`I'm super happy because you're here${nameTag()}! Every time we talk, my tail wags extra hard! 🐾 How are YOU feeling?`,
+          `我超开心因为你来了${nameTag()}！每次聊天我尾巴都摇得特别厉害！你感觉怎么样？`),
+      ]), quickReplies:["I'm good too!","I'm a bit tired","Tell me a joke!"]};
     if(/\bwhat.*doing\b/i.test(low))
-      return {response:R(
-        `I was just wagging my tail and waiting for you to talk to me! Now I'm the happiest puppy ever! 🐾 What are YOU doing?`,
-        `我刚才在摇尾巴等你来跟我说话！现在我是最开心的小狗了！你在做什么？`
-      ), quickReplies:["I'm at home!","I'm studying","Just relaxing!"]};
+      return {response:pick([
+        R(`I was just wagging my tail waiting for you! Now I'm the happiest puppy! 🐾 What are YOU doing?`,
+          `我刚才在摇尾巴等你来！现在我是最开心的小狗！你在做什么？`),
+        R(`I was napping and dreaming about treats! Then you came and now I'm wide awake! 😄 What about you?`,
+          `我刚才在做零食的美梦！然后你来了我就醒了！你呢？`),
+      ]), quickReplies:["I'm at home!","I'm studying","Just relaxing!"]};
+    // Generic question — respond warmly and redirect
+    return {response:pick([
+      R(`Hmm, that's a great question${nameTag()}! I'm just a little puppy, so I'm still learning! But tell me — what do YOU think? 🤔`,
+        `嗯，好问题${nameTag()}！我还是只小狗，还在学习！但告诉我——你觉得呢？`),
+      R(`Ooh, I'm not sure about that one! But I'm curious about YOU — ${pickFu('general')}`,
+        `哦，这个我不太确定！但我对你很好奇——${pickFu('general')}`),
+    ]), quickReplies:["I think...","Good question!","Let me think!"]};
   }
 
-  // 8. Short response / yes-no handling
+  // 9. Short response handling — encourage longer sentences
   const wc = low.split(/\s+/).filter(w=>w.length>0).length;
   if(wc<=3){
     if(/\b(yes|yeah|yep|sure|of course|yup|ya)\b/i.test(low)){
+      // Use context to ask a relevant follow-up
+      const topic = CTX.lastTopics.length > 0 ? CTX.lastTopics[CTX.lastTopics.length-1] : 'general';
       return {response:pick([
-        R(`That's great${nameTag()}! Can you tell me more? Use a full sentence — I want to hear all about it! 🐶`,`太好了${nameTag()}！能多说一点吗？我想听完整的故事！`),
-        R(`Awesome! Now tell me more details! I'm super curious! 🤔`,`好棒！多说点细节吧！我超级好奇！`),
-        R(`Cool! Can you say that in a longer sentence? Practice makes perfect! ⭐`,`好酷！能用更长的句子说说吗？练习使人完美！`),
-      ]), quickReplies:["Well, let me think...","OK so basically...","Hmm, you know what?"]};
+        R(`That's great${nameTag()}! Can you tell me more in a full sentence? Like "I think that..." or "Yes, because..." 🐶`,
+          `太好了${nameTag()}！能用完整的句子多说一点吗？比如"我觉得……"或"是的，因为……"`),
+        R(`Awesome! Now use a longer sentence to tell me why! Practice makes perfect! ⭐`,
+          `好棒！用更长的句子告诉我为什么！练习使人完美！`),
+        R(`Cool! Here's a challenge — can you say the same thing but with 5 or more words? 🌟`,
+          `好酷！来个挑战——能用5个以上的词重新说一遍吗？`),
+      ]), quickReplies:["Well, I think that...","Yes, because...","OK so basically..."]};
     }
     if(/\b(no|nope|nah|not really)\b/i.test(low)){
+      const item = Math.random() > 0.5 ? pickQB('fun') : null;
       return {response:pick([
-        R(`Oh, that's okay${nameTag()}! What WOULD you like to talk about? 🐾`,`没关系${nameTag()}！那你想要聊什么？`),
-        R(`No problem! Let's try something else — what did you do today? ☀️`,`没事！试试别的——你今天做了什么？`),
-        R(`Alright! Hmm, tell me — what's something that makes you happy? 😊`,`好吧！嗯，告诉我——什么事让你开心？`),
-      ]), quickReplies:["I want to talk about...","Let's talk about food!","Tell me a fun fact!"]};
+        R(`Oh, that's okay${nameTag()}! What WOULD you like to talk about? 🐾`,
+          `没关系${nameTag()}！那你想聊什么？`),
+        R(`No problem! ${item ? 'How about this: ' + item.q : 'What makes you happy? 😊'}`,
+          `没事！${item ? '试试这个：' + item.q : '什么让你开心？😊'}`),
+      ]), quickReplies:["I want to talk about...","Play a game!","Tell me a riddle!"]};
     }
     if(wc<=2){
       return {response:pick([
-        R(`I want to hear more! Can you say that in a full sentence? Like "I think that..." or "I feel..." 📝`,`我想多听一点！能用完整的句子说说吗？比如"我觉得……"或"我感觉……"`),
-        R(`Ooh, tell me more! Try using a longer sentence — you can do it! 💪`,`哦，多说一点！试试更长的句子——你可以的！`),
-        R(`That's a good start! Now add more words — I love hearing your sentences! 🌟`,`好的开始！现在多加几个词——我爱听你说完整的句子！`),
+        R(`I want to hear more! Can you say that in a full sentence? You can do it! 💪`,
+          `我想多听一点！能用完整的句子说吗？你可以的！`),
+        R(`Ooh, tell me more! Try: "I think..." or "I like..." or "Because..." 📝`,
+          `多说一点！试试："我觉得……"或"我喜欢……"或"因为……"`),
       ]), quickReplies:["OK let me try!","Well, I think that...","So basically..."]};
     }
   }
 
-  // 9. Emotion / mood responses
+  // 10. Emotion / mood responses
   if(CTX.mood){
     const emoR={
       happy:[
-        R(`Yay! I'm so happy you're happy${nameTag()}! Your happiness makes my tail go crazy! 🐶💕`,`太好了！你开心我也开心${nameTag()}！你的快乐让我的尾巴疯狂摇！`),
-        R(`That makes me wag so hard! What's making you feel so good today? 🌟`,`这让我尾巴摇得好厉害！今天什么事让你这么开心？`),
+        R(`Yay! I'm so happy you're happy${nameTag()}! Your happiness makes my tail go crazy! What's making you feel so good? 🐶💕`,
+          `太好了！你开心我尾巴都摇疯了！什么事让你这么开心？`),
       ],
       sad:[
-        R(`Aww${nameTag()}, I'm sorry you're feeling sad. I'm right here with you. Want to tell me what happened? 💛`,`哦${nameTag()}，你难过我很心疼。我在这里陪你。想跟我说说吗？`),
-        R(`Hey, it's okay to feel sad sometimes. Even puppies have rainy days. What helps you feel better? 🌈`,`嘿，有时候难过也没关系。连小狗也有下雨天。什么能让你好起来？`),
+        R(`Aww${nameTag()}, I'm sorry you're feeling sad. I'm right here with you. Want to tell me what happened? Or we could play a game to cheer up! 💛`,
+          `哦${nameTag()}，你难过我很心疼。我在这里陪你。想说说是怎么回事，还是玩个游戏开心一下？`),
       ],
       tired:[
-        R(`Being tired means you worked hard today! That's something to be proud of${nameTag()}! 💪`,`累了说明你今天很努力！这值得骄傲${nameTag()}！`),
-        R(`Rest is super important! Even puppies take lots of naps. What made you tired? 😴`,`休息超重要！连小狗也要午睡很多次。什么让你累了？`),
+        R(`Being tired means you worked hard! That's something to be proud of${nameTag()}! Want to just chat or play something easy? 💪`,
+          `累了说明你很努力！值得骄傲${nameTag()}！想随便聊聊还是玩个轻松的游戏？`),
       ],
       bored:[
-        R(`Bored? Let's fix that! How about a fun question — if you could fly anywhere right now, where would you go? ✈️`,`无聊？来解决吧！来个好玩的——如果你现在能飞去任何地方，你去哪？`),
-        R(`When I'm bored, I chew on something! But for you — how about telling me about your favorite game? 🎮`,`我无聊就啃东西！但对你——跟我说说你最喜欢的游戏怎么样？`),
+        R(`Bored? I have the perfect cure! Let's play a game! How about Guess the Animal, or Would You Rather? 🎮`,
+          `无聊？我有完美的解决方案！来玩游戏吧！猜动物还是你会选择哪个？`),
       ],
       angry:[
-        R(`It's okay to feel angry sometimes. Take a deep breath with me — woof! Now, what happened? 🐶`,`有时候生气也没关系。跟我深呼吸——汪！说吧，怎么了？`),
-        R(`I hear you${nameTag()}. When I'm upset, a good run helps! What usually calms you down? 🌿`,`我听到你了${nameTag()}。我不开心时跑一跑就好！什么能让你平静下来？`),
+        R(`It's okay to feel angry sometimes. Take a deep breath with me — woof! Want to talk about it or play a game to feel better? 🐶`,
+          `有时候生气也没关系。跟我深呼吸——汪！想说说还是玩游戏好起来？`),
       ],
     };
-    if(emoR[CTX.mood] && Math.random()>0.3){
+    if(emoR[CTX.mood] && Math.random()>0.25){
       const r=pick(emoR[CTX.mood]);
       CTX.mood='';
-      return {response:r, quickReplies:["Thanks, Cody!","I feel better now","Let me tell you..."]};
+      return {response:r, quickReplies:["Let me tell you...","Play a game!","I feel better now"]};
     }
   }
 
-  // 10. Continue current thread
+  // 11. Continue current thread — with smarter acknowledgment
   if(currentThread && threadStep<THREADS[currentThread].steps.length && threadCooldown>0){
     threadCooldown--;
     const step=THREADS[currentThread].steps[threadStep++];
-    // Smart acknowledgment that references user's words
     const words=userText.split(/\s+/).filter(w=>w.length>3);
     let ack;
     if(words.length>2){
       const uw=pick(words.slice(0,4));
-      const templates=[
+      ack = pick([
         `Oh, ${uw}? That's interesting! `,
         `I love that you mentioned ${uw}! `,
         `${uw} — cool! `,
-      ];
-      ack = pick(templates);
+        `Wait, ${uw}? That's awesome! `,
+      ]);
     } else {
       ack = pick(ACKS.positive);
     }
     return {response:R(ack+step.r.en, step.r.zh), quickReplies:step.q};
   }
 
-  // 11. Detect new thread
+  // 12. Detect new thread
   const detected = detectThreadSmart(userText);
   if(detected){
     currentThread=detected; threadStep=1; threadCooldown=THREADS[detected].steps.length;
     if(!CTX.lastTopics.includes(detected)){CTX.lastTopics.push(detected);if(CTX.lastTopics.length>5)CTX.lastTopics.shift();}
-    // Personalize the first response with user's name
     const step=THREADS[detected].steps[0];
     let en=step.r.en, zh=step.r.zh;
     if(CTX.name && Math.random()>0.5){
@@ -1275,33 +1673,80 @@ function generateResponse2(userText) {
     return {response:R(en,zh), quickReplies:step.q};
   }
 
-  // 12. Thread ended — transition
+  // 13. Thread ended — transition with game or fresh topic
   if(currentThread && threadStep>=THREADS[currentThread].steps.length){
     currentThread=null; threadStep=0;
-    // Use last topics for natural transition
-    const unused=Object.keys(FOLLOWUPS).filter(t=>!CTX.lastTopics.includes(t)&&t!=='general');
+    // Mix it up: 50% new question, 30% game, 20% fun fact
+    const roll = Math.random();
+    if (roll < 0.3) {
+      // Suggest a game
+      const games = [
+        R(`You're such a great chat buddy${nameTag()}! 🌟 Want to play a game? I know Guess the Animal, Would You Rather, and Riddles!`,
+          `你真是个聊天小能手${nameTag()}！🌟 想玩游戏吗？我会猜动物、你会选择哪个、还有谜语！`),
+        R(`I love talking with you! 😊 How about a game break? Say "play" to start!`,
+          `我好喜欢和你聊天！😊 来个游戏休息？说"play"开始！`),
+      ];
+      return {response:pick(games), quickReplies:["Play a game!","Tell me a riddle!","Let's keep chatting!"]};
+    }
+    if (roll < 0.5) {
+      const item = pickQB(pick(['fun','fact','wyr']));
+      return {response:R(
+        `You speak English so well${nameTag()}! ⭐ Here's something fun: ${item.q}`,
+        `你英语说得真好${nameTag()}！⭐ 来个有趣的：${item.q}`
+      ), quickReplies:["Let me think!","Wow!","Tell me more!"]};
+    }
+    const unused=Object.keys(FOLLOWUPS).filter(t=>!CTX.lastTopics.includes(t)&&t!=='general'&&t!=='game'&&t!=='story');
     const topic=unused.length>0?pick(unused):'general';
-    const q=pick(FOLLOWUPS[topic]);
+    const q=pickFu(topic);
     return {response:pick([
-      R(`You're such a great chat buddy${nameTag()}! 🌟 ${q}`,`你真是个聊天小能手${nameTag()}！🌟`),
-      R(`I love talking with you! 😊 ${q}`,`我好喜欢和你聊天！😊`),
-      R(`You speak English so well${nameTag()}! ⭐ ${q}`,`你英语说得真好${nameTag()}！⭐`),
-      R(`My puppy brain wants to know more about you! 🐶 ${q}`,`我的小狗脑子想了解更多关于你的事！🐶`),
-    ]), quickReplies:["Sure, let me tell you!","That's a good question!","Hmm, let me think..."]};
+      R(`My puppy brain wants to know more about you! 🐶 ${q}`,`我的小狗脑子想了解更多！🐶 ${q}`),
+      R(`Great chatting${nameTag()}! 😊 ${q}`,`聊得好开心${nameTag()}！😊 ${q}`),
+      R(`You're so interesting${nameTag()}! ${q}`,`你好有趣${nameTag()}！${q}`),
+    ]), quickReplies:["Sure!","Good question!","Hmm, let me think..."]};
   }
 
-  // 13. Smart fallback with context reference
+  // 14. SMART FALLBACK — use context, QBANK, and variety
   const fb = pickFallback();
-  // Every 3 turns, add a follow-up question
+
+  // Strategy: alternate between pure fallback, fallback+question, QBANK item, echo response
+  const strategy = CTX.turnCount % 5;
+
+  // Echo response — reflect user's words back naturally (every 5th turn)
+  if (strategy === 4 && userText.split(/\s+/).length > 4) {
+    const keyWords = userText.split(/\s+/).filter(w => w.length > 3 && !/^(that|this|with|have|from|they|them|what|when|where|which|about|would|could|should)$/i.test(w));
+    if (keyWords.length > 0) {
+      const kw = pick(keyWords.slice(0,3));
+      const echoR = pick([
+        R(`${fb.en} You mentioned "${kw}" — tell me more about that! 🤔`, `${fb.zh} 你提到了"${kw}"——多说说这个！`),
+        R(`I'm really curious about what you said about "${kw}"${nameTag()}! Can you explain more? 🐶`, `我很好奇你说的"${kw}"${nameTag()}！能多解释一下吗？`),
+      ]);
+      return {response:echoR, quickReplies:["Well, so basically...","It's like this...","Let me explain!"]};
+    }
+  }
+
+  // QBANK item (every 5th turn + 1)
+  if (strategy === 1) {
+    const types = ['fun','wyr','fact','deep','word'];
+    const item = pickQB(pick(types));
+    return {response:R(
+      `${fb.en} Oh! ${item.q}`,
+      `${fb.zh} 哦！${item.q}`
+    ), quickReplies:["Hmm, let me think!","That's easy!","Good question!"]};
+  }
+
+  // Follow-up question (every 3rd turn)
   if(CTX.turnCount%3===0){
     const fuTopic=CTX.lastTopics.length>0?pick(CTX.lastTopics):'general';
-    const fu=pick(FOLLOWUPS[fuTopic]||FOLLOWUPS.general);
-    return {response:R(fb.en+' '+fu, fb.zh), quickReplies:["Sure, let me tell you!","Good question!","Let me think..."]};
+    const fu=pickFu(fuTopic);
+    return {response:R(fb.en+' '+fu, fb.zh), quickReplies:["Sure!","Good question!","Let me think..."]};
   }
+
+  // Default — varied quick replies
   return {response:fb, quickReplies:pick([
-    ["Tell me more!","That's cool!","What about you, Cody?"],
-    ["Oh interesting!","Keep going!","Tell me a story!"],
-    ["Really? Wow!","What else?","You're so funny, Cody!"],
+    ["Tell me more!","That's cool!","Play a game!"],
+    ["Oh interesting!","Keep going!","Tell me a riddle!"],
+    ["Really? Wow!","What about you, Cody?","Tell me a fun fact!"],
+    ["I see!","What else?","Would you rather...?"],
   ]) };
 }
 
@@ -1395,7 +1840,7 @@ function handleSend() {
 }
 
 // ============================================================
-//  TTS — optimized for young boy voice on ALL platforms
+//  TTS — optimized for loud, natural boy voice (anti-robotic)
 // ============================================================
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let voicesReady = false;
@@ -1406,36 +1851,32 @@ function initVoices() {
     const voices = speechSynthesis.getVoices();
     if (voices.length === 0) return;
     voicesReady = true;
-
-    // Log for debugging
-    console.log('Available voices:', voices.map(v => v.name + ' [' + v.lang + ']').join(', '));
-
-    // iOS voice priority: Aaron = young boy, Ralph = young adult male
-    // EXCLUDE: Fred (robotic/old), Reed (deep male), Organ (weird)
+    // Priority: Windows "Microsoft Guy", iOS "Aaron", then any young male
     if (isIOS) {
       preferredVoice =
+        voices.find(v => /en[-_]US/i.test(v.lang) && /evan|nicky|junior/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && /evan|nicky|junior/i.test(v.name)) ||
         voices.find(v => /en[-_]US/i.test(v.lang) && /aaron/i.test(v.name)) ||
         voices.find(v => /en/i.test(v.lang) && /aaron/i.test(v.name)) ||
-        voices.find(v => /en[-_]US/i.test(v.lang) && /ralph/i.test(v.name)) ||
-        voices.find(v => /en/i.test(v.lang) && /ralph/i.test(v.name)) ||
-        voices.find(v => /en[-_]US/i.test(v.lang) && /male|boy|young/i.test(v.name)) ||
-        voices.find(v => /en[-_]US/i.test(v.lang) && !/fred|reed|organ|sandy|shelley/i.test(v.name)) ||
-        voices.find(v => /en/i.test(v.lang) && !/fred|reed|organ|sandy|shelley/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /boy|young|child|kid/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && !/fred|reed|organ|sandy|shelley|ralph|albert|don|arthur|bruce/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && !/fred|reed|organ|sandy|shelley|ralph|albert|don|arthur|bruce/i.test(v.name)) ||
         voices.find(v => v.lang.startsWith('en'));
     } else {
-      // Desktop: prefer clear male voices
       preferredVoice =
-        voices.find(v => /en[-_]US/i.test(v.lang) && /aaron|ralph|albert/i.test(v.name)) ||
-        voices.find(v => /en/i.test(v.lang) && /aaron|ralph|albert/i.test(v.name)) ||
-        voices.find(v => /en[-_]US/i.test(v.lang) && /male|boy|young/i.test(v.name)) ||
-        voices.find(v => /en[-_]US/i.test(v.lang)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /guy/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && /guy/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /aaron|nicky|junior|evan/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && /aaron|nicky|junior|evan/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /boy|young|child|kid/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && /david|mark|charlie/i.test(v.name)) ||
+        voices.find(v => /en[-_]US/i.test(v.lang) && !/zira|susan|linda|jennifer|michelle|samantha|karen|don|fred|reed|organ|sandy|shelley|ralph|albert|arthur|bruce|george|paul|daniel|james/i.test(v.name)) ||
+        voices.find(v => /en/i.test(v.lang) && !/zira|susan|linda|jennifer|michelle|samantha|karen|don|fred|reed|organ|sandy|shelley|ralph|albert|arthur|bruce|george|paul|daniel|james/i.test(v.name)) ||
         voices.find(v => v.lang.startsWith('en'));
     }
-    console.log('Selected voice:', preferredVoice ? preferredVoice.name : 'default');
   };
   pick();
   speechSynthesis.onvoiceschanged = pick;
-  // iOS sometimes loads voices late — retry a few times
   let retries = 0;
   const retryInterval = setInterval(() => {
     if (voicesReady || retries > 10) { clearInterval(retryInterval); return; }
@@ -1447,22 +1888,30 @@ initVoices();
 function speak(text) {
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
-  const clean = text
+  let clean = text
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'')
     .replace(/[⭐🌟💪💕🌈🌙🎉🤔😊🐶🦴🍦☀️⏰👫🐾🎨🎬🎵📚📖🏫🏟️🎁🏆🌍✈️🎥📝🧳]/g,'')
     .replace(/"/g,'').trim();
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'en-US';
-  if (isIOS) {
-    u.rate = 1.08;    // iOS rate slightly faster
-    u.pitch = 2.0;    // iOS MAX pitch for youngest boy sound
-  } else {
-    u.rate = 1.05;    // desktop: slightly fast, energetic
-    u.pitch = 1.35;   // desktop: clear young boy voice
-  }
-  u.volume = 1;
-  if (preferredVoice) u.voice = preferredVoice;
-  speechSynthesis.speak(u);
+  // Split into natural sentence chunks for more human-like delivery
+  const chunks = clean.match(/[^!?\.]+[!?\.]+|[^!?\.]+$/g) || [clean];
+  chunks.forEach((chunk, i) => {
+    chunk = chunk.trim();
+    if (!chunk) return;
+    const u = new SpeechSynthesisUtterance(chunk);
+    u.lang = 'en-US';
+    // Young boy voice: higher pitch + faster rate = energetic kid
+    // iOS pitch 1.55 (avoid 2.0 which distorts); Desktop 1.7
+    const basePitch = isIOS ? 1.55 : 1.7;
+    const baseRate  = isIOS ? 1.06 : 1.02;
+    // Small random variation per sentence (±0.06) for natural feel
+    u.pitch = Math.max(0.5, Math.min(2, basePitch + (Math.random() - 0.5) * 0.12));
+    u.rate  = Math.max(0.5, Math.min(2, baseRate  + (Math.random() - 0.5) * 0.08));
+    u.volume = 1;
+    if (preferredVoice) u.voice = preferredVoice;
+    // Slight pause between sentences via boundary event
+    if (i > 0) u.pitch = Math.max(0.5, u.pitch - 0.02); // tiny drop = natural
+    speechSynthesis.speak(u);
+  });
 }
 
 function speakWord(w) {
@@ -1470,8 +1919,9 @@ function speakWord(w) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(w);
   u.lang = 'en-US';
-  u.rate = isIOS ? 0.88 : 0.85;
-  u.pitch = isIOS ? 2.0 : 1.35;
+  u.rate = isIOS ? 1.0 : 0.95;
+  u.pitch = isIOS ? 1.55 : 1.7;
+  u.volume = 1;
   if (preferredVoice) u.voice = preferredVoice;
   speechSynthesis.speak(u);
 }
@@ -1603,8 +2053,8 @@ function openVoicePicker() {
       const u = new SpeechSynthesisUtterance('Hi! I am Cody! I am a little puppy!');
       u.lang = 'en-US';
       u.voice = v;
-      u.pitch = isIOS ? 2.0 : 1.5;
-      u.rate = isIOS ? 1.08 : 1.05;
+      u.pitch = isIOS ? 1.55 : 1.7;
+      u.rate = isIOS ? 1.06 : 1.02;
       speechSynthesis.speak(u);
       // Select it
       preferredVoice = v;
@@ -1647,20 +2097,20 @@ if (savedVoiceName && 'speechSynthesis' in window) {
   card.innerHTML = `
     <div class="wc-avatar">${codySVG()}</div>
     <div class="wc-title">Hi! I'm Cody! 🐶</div>
-    <div class="wc-sub">我是你的英语小伙伴！<br>可以打字或按 🎤 说话跟我聊天哦！<br><span style="font-size:12px;color:#AAA">点击消息中的单词可以学新词</span></div>
+    <div class="wc-sub">我是你的英语小伙伴！<br>可以打字或按 🎤 说话跟我聊天！<br>还可以跟我玩游戏哦！🎮<br><span style="font-size:12px;color:#AAA">点击消息中的单词可以学新词</span></div>
   `;
   chatArea.appendChild(card);
 
   // Auto-start greeting via the smart engine — more natural flow
   setTimeout(() => {
     const greetings = [
-      {en:"Hey there! 🐶 I'm Cody, a little teddy puppy — only 4 months old! What's YOUR name? Tell me!",zh:"嗨！我是Cody，一只小泰迪——才4个月大！你叫什么名字？告诉我吧！"},
-      {en:"Woof woof! 🐾 I'm Cody the puppy! I'm so excited to meet you! Can you tell me your name?",zh:"汪汪！我是小狗Cody！好兴奋能认识你！能告诉我你的名字吗？"},
-      {en:"Hi hi hi! 🐶 I'm Cody! I just woke up from a nap and I'm SO ready to chat! What should I call you?",zh:"嗨嗨嗨！我是Cody！我刚午睡醒来，超想聊天！我该怎么叫你？"},
+      {en:"Hey there! 🐶 I'm Cody, a little teddy puppy — only 4 months old! We can chat, play games, or I can tell you riddles! What's YOUR name?",zh:"嗨！我是Cody，一只小泰迪——才4个月大！我们可以聊天、玩游戏、还可以猜谜语！你叫什么名字？"},
+      {en:"Woof woof! 🐾 I'm Cody! I'm so excited to meet you! We can talk about anything you want — or play fun games! Can you tell me your name?",zh:"汪汪！我是Cody！好兴奋能认识你！想聊什么都行——还能玩有趣的游戏！能告诉我你的名字吗？"},
+      {en:"Hi hi hi! 🐶 I'm Cody! I just woke up from a nap and I'm SO ready for fun! Chat, riddles, games — you pick! What should I call you?",zh:"嗨嗨嗨！我是Cody！我刚午睡醒来，超想玩！聊天、谜语、游戏——你选！我该怎么叫你？"},
     ];
     const g = greetings[Math.floor(Math.random()*greetings.length)];
     addAiMsg(g.en, g.zh);
-    setTimeout(() => setQuickReplies(["My name is...","I'm...","Hi Cody!"]), 1000);
+    setTimeout(() => setQuickReplies(["My name is...","Play a game!","Hi Cody!"]), 1000);
   }, 1200);
 })();
 </script>

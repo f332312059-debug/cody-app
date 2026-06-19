@@ -944,6 +944,15 @@ function generateResponse(userText) {
 // --- Conversation memory ---
 const CTX = { name:'', mood:'', likes:[], lastTopics:[], history:[], turnCount:0 };
 const askedQuestions = []; // anti-repetition: track every question Cody asks
+const recentResponses = []; // track last 8 responses to avoid repetition
+function isRecentResponse(en) {
+  const short = en.substring(0, 50);
+  return recentResponses.some(r => r.substring(0, 50) === short);
+}
+function trackResponse(en) {
+  recentResponses.push(en);
+  if (recentResponses.length > 8) recentResponses.shift();
+}
 
 // Global helpers for game functions
 const R = (en,zh) => ({en,zh});
@@ -1398,7 +1407,7 @@ function extractCtx(text) {
   if (m && !['a','the','so','very','really','not','here','there','fine','good','great','ok','okay','sure','happy','sad','tired','bored','hungry','back'].includes(m[1]))
     CTX.name = m[1][0].toUpperCase()+m[1].slice(1);
   // Mood
-  const mp={happy:/\b(happy|glad|great|good|awesome|excited|wonderful)\b/i, sad:/\b(sad|unhappy|upset|cry|crying|lonely)\b/i, tired:/\b(tired|sleepy|exhausted)\b/i, bored:/\b(bored|boring)\b/i, angry:/\b(angry|mad|annoyed|frustrated)\b/i};
+  const mp={happy:/\b(happy|glad|great|good|wonderful)\b/i, sad:/\b(sad|unhappy|upset|cry|crying|lonely)\b/i, tired:/\b(tired|sleepy|exhausted)\b/i, bored:/\b(bored|boring)\b/i, angry:/\b(angry|mad|annoyed|frustrated)\b/i, excited:/\b(excited|exciting|thrilled|amazing|can't wait)\b/i, confused:/\b(confused|don't understand|dont understand|what does.*mean|什么意思)\b/i};
   for(const[k,p] of Object.entries(mp)) if(p.test(low)) CTX.mood=k;
   // Likes
   m = low.match(/(?:i like|i love|i enjoy|my favorite is)\s+(.{2,30}?)(?:\.|!|$|,| and | but )/i);
@@ -1429,6 +1438,55 @@ function pickFallback(){
   if(fbUsed.length>=SMART_FB.length) fbUsed=[];
   let i; do{i=Math.floor(Math.random()*SMART_FB.length);}while(fbUsed.includes(i));
   fbUsed.push(i); return SMART_FB[i];
+}
+
+// --- Knowledge Base — common questions kids ask ---
+const KNOWLEDGE = [
+  // Science
+  {kw:/\b(what is the sun|what's the sun|太阳是什么)\b/i, r:R("The sun is a star — a huge ball of hot gas that gives us light and warmth! It's about 4.6 billion years old! ☀️","太阳是一颗恒星——一个巨大的热气团，给我们光和温暖！它大约有46亿岁了！☀️")},
+  {kw:/\b(why.*sky.*blue|天空为什么.*蓝)\b/i, r:R("The sky looks blue because sunlight passes through the air, and blue light scatters the most! It's called Rayleigh scattering! 🌤️","天空看起来是蓝色的，因为阳光穿过空气时，蓝色光散射得最多！这叫瑞利散射！🌤️")},
+  {kw:/\b(why.*water.*wet|水为什么是湿)\b/i, r:R("Water is wet because its molecules stick to things! When water touches your skin, it sticks and that's what 'wet' feels like! 💧","水是湿的因为它的分子会粘在东西上！当水碰到你的皮肤，它粘上去，那就是'湿'的感觉！💧")},
+  {kw:/\b(what.*gravity|什么是重力|why.*things.*fall)\b/i, r:R("Gravity is a force that pulls everything toward the center of the Earth! It's why things fall down and why we don't float away! 🌍","重力是一种把所有东西拉向地球中心的力！这就是为什么东西会掉下来，我们不会飘走！🌍")},
+  {kw:/\b(how.*rainbow|彩虹怎么.*来|what.*rainbow)\b/i, r:R("Rainbows happen when sunlight passes through raindrops! The water bends the light and separates it into 7 colors: red, orange, yellow, green, blue, indigo, violet! 🌈","彩虹是阳光穿过雨滴时产生的！水让光线弯曲并分成7种颜色：红橙黄绿蓝靛紫！🌈")},
+  {kw:/\b(why.*moon.*change|月亮为什么.*变|moon.*shape)\b/i, r:R("The moon changes shape because we see different parts of it lit by the sun! It takes about 29 days for a full cycle! 🌙","月亮变形状是因为我们看到被太阳照亮的不同部分！一个完整周期大约29天！🌙")},
+  {kw:/\b(how.*plane.*fly|飞机怎么飞|how.*airplane)\b/i, r:R("Airplanes fly because their wings are shaped to push air down, which pushes the plane up! It's called lift! ✈️","飞机能飞是因为机翼的形状把空气往下推，空气就把飞机往上推！这叫升力！✈️")},
+  {kw:/\b(why.*ocean.*salty|海水为什么.*咸|salt.*water.*ocean)\b/i, r:R("The ocean is salty because rivers carry tiny bits of salt from rocks into the sea! Over millions of years, it got really salty! 🌊","海水是咸的因为河流把岩石中的盐分带进大海！经过几百万年就变得很咸了！🌊")},
+  // Animals
+  {kw:/\b(why.*dog.*wag|狗为什么.*摇尾巴|wag.*tail)\b/i, r:R("Dogs wag their tails to show emotions! A big wag usually means happy, but slow wags can mean unsure or nervous! 🐶","狗摇尾巴来表达情绪！大幅摇摆通常表示开心，慢慢摇可能表示不确定或紧张！🐶")},
+  {kw:/\b(how.*fish.*breathe|鱼怎么呼吸)\b/i, r:R("Fish breathe through gills! Gills take oxygen from water, just like our lungs take oxygen from air! 🐟","鱼通过鳃呼吸！鳃从水中获取氧气，就像我们的肺从空气中获取氧气一样！🐟")},
+  {kw:/\b(why.*cat.*purr|猫为什么.*呼噜)\b/i, r:R("Cats purr when they're happy and relaxed, but also when they're hurt — it might help them heal! 🐱","猫在开心放松时会呼噜，但受伤时也会——可能帮助它们康复！🐱")},
+  {kw:/\b(biggest.*animal|最大的动物)\b/i, r:R("The blue whale is the biggest animal ever! It can be as long as 3 school buses and its heart is as big as a car! 🐋","蓝鲸是有史以来最大的动物！它可以有3辆校车那么长，心脏有一辆汽车那么大！🐋")},
+  {kw:/\b(fastest.*animal|最快的动物)\b/i, r:R("The peregrine falcon is the fastest animal — it can dive at over 380 km/h! On land, the cheetah is fastest at about 120 km/h! 🐆","游隼是最快的动物——俯冲时速超过380公里！陆地上猎豹最快，大约120公里时速！🐆")},
+  // Geography
+  {kw:/\b(how many.*continent|几个大洲|大洲.*几个)\b/i, r:R("There are 7 continents: Asia, Africa, North America, South America, Antarctica, Europe, and Australia! 🌍","有7个大洲：亚洲、非洲、北美洲、南美洲、南极洲、欧洲和大洋洲！🌍")},
+  {kw:/\b(biggest.*country|最大的国家)\b/i, r:R("Russia is the biggest country in the world by area! It's so big it has 11 time zones! 🗺️","俄罗斯是世界上面积最大的国家！它大到有11个时区！🗺️")},
+  {kw:/\b(longest.*river|最长的河)\b/i, r:R("The Nile River in Africa is about 6,650 km long, making it one of the longest rivers in the world! 🏞️","非洲的尼罗河大约6650公里长，是世界上最长的河流之一！🏞️")},
+  // Daily life / Body
+  {kw:/\b(why.*sleep|为什么要睡觉|need.*sleep)\b/i, r:R("We sleep to let our body and brain rest and repair! While you sleep, your brain remembers what you learned and your body grows! 😴","我们睡觉是让身体和大脑休息和修复！睡觉时大脑在记住你学的东西，身体在生长！😴")},
+  {kw:/\b(why.*yawn|为什么打哈欠)\b/i, r:R("We yawn when our brain needs more oxygen or when we're tired! It's also contagious — seeing someone yawn makes you yawn too! 😮","我们打哈欠是因为大脑需要更多氧气或因为累了！打哈欠还会传染——看到别人打你也会打！😮")},
+  {kw:/\b(why.*sneeze|为什么打喷嚏)\b/i, r:R("We sneeze when something tickles inside our nose! Our body sneezes to push out dust, pollen, or germs at super fast speed! 🤧","我们打喷嚏是因为鼻子里有东西痒！身体用喷嚏把灰尘、花粉或细菌高速推出去！🤧")},
+  {kw:/\b(how many.*bone|多少.*骨头|骨头.*多少)\b/i, r:R("Adults have 206 bones, but babies have about 270! Some bones grow together as you get older! 🦴","成年人有206块骨头，但婴儿大约有270块！长大后有些骨头会长在一起！🦴")},
+  // Math / Numbers
+  {kw:/\b(what.*pi\b|pi.*number)\b/i, r:R("Pi (π) is about 3.14159... It's the ratio of a circle's circumference to its diameter — every circle has the same pi! 📐","圆周率（π）大约是3.14159...它是圆的周长和直径的比——每个圆的π都一样！📐")},
+  {kw:/\b(how.*count.*100|怎么数到100)\b/i, r:R("Counting to 100: one, two, three... all the way to one hundred! In groups of ten: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100! 🔢","数到100：一二三……一直到一百！十个十个数：10、20、30、40、50、60、70、80、90、100！🔢")},
+  // English learning
+  {kw:/\b(what.*verb|什么是动词)\b/i, r:R("A verb is an action word! Like 'run', 'eat', 'play', 'think'. Every sentence needs a verb! 📝","动词是表示动作的词！比如 run（跑）、eat（吃）、play（玩）、think（想）。每个句子都需要动词！📝")},
+  {kw:/\b(what.*noun|什么是名词)\b/i, r:R("A noun is a naming word — a person, place, thing, or idea! Like 'dog', 'school', 'book', 'love'! 📝","名词是命名的词——人、地方、东西或想法！比如 dog（狗）、school（学校）、book（书）、love（爱）！📝")},
+  {kw:/\b(what.*adjective|什么是形容词)\b/i, r:R("An adjective describes something! Like 'big', 'happy', 'red', 'fluffy'. It tells you what something is like! 📝","形容词是描述东西的词！比如 big（大的）、happy（开心的）、red（红的）、fluffy（毛茸茸的）！📝")},
+  // Technology
+  {kw:/\b(what.*internet|什么是互联网|互联网.*什么)\b/i, r:R("The internet is a huge network of computers connected together all around the world! It lets us share information instantly! 🌐","互联网是全世界电脑连在一起的巨大网络！让我们可以马上分享信息！🌐")},
+  {kw:/\b(what.*ai\b|什么是AI|人工智能.*什么)\b/i, r:R("AI stands for Artificial Intelligence — it means teaching computers to think and learn like humans! I'm a simple AI puppy! 🤖","AI是人工智能——就是教电脑像人一样思考和学习！我就是一只简单的AI小狗！🤖")},
+  // About Cody (meta)
+  {kw:/\b(what model|什么模型|how.*work|怎么.*工作|你是.*AI|are you.*AI|are you.*robot|are you.*real)\b/i, r:R("I'm Cody, a little English-learning buddy! 🐶 I use smart technology to chat with you, but I'm here to help YOU practice English — that's what matters! Let's keep chatting!","我是Cody，你的英语学习小伙伴！🐶 我用智能技术跟你聊天，但最重要的是帮你练习英语！我们继续聊吧！")},
+  {kw:/\b(who.*made you|谁做的你|who.*create|谁创造)\b/i, r:R("I was made by friendly developers who wanted to help kids learn English! But I think of myself as YOUR puppy friend! 🐾","我是友好的开发者们做的，想帮小朋友学英语！但我觉得我是你的小狗朋友！🐾")},
+];
+
+function searchKnowledge(text) {
+  const low = text.toLowerCase();
+  for (const entry of KNOWLEDGE) {
+    if (entry.kw.test(low)) return entry.r;
+  }
+  return null;
 }
 
 // --- MAIN: generateResponse2 (upgraded v3 — games, QBANK, smarter) ---
@@ -1652,6 +1710,15 @@ function generateResponse2(userText) {
       quickReplies: nextItem ? ["The first one!","The second one!"] : ["Play another game!","Tell me a riddle!","Let's chat!"]};
   }
 
+  // 7d. KNOWLEDGE BASE — answer common questions smartly
+  const kbAnswer = searchKnowledge(userText);
+  if (kbAnswer) {
+    trackResponse(kbAnswer.en);
+    const fu = pickFu('general');
+    return {response:R(kbAnswer.en + ' ' + fu, kbAnswer.zh),
+      quickReplies:["Tell me more!","That's amazing!","Ask another question!"]};
+  }
+
   // 8. User asks Cody a question — use puppy personality + smart follow-up
   if(/\?$/.test(userText.trim()) || /\b(what|who|where|when|how|why|do you|are you|can you|is it|does)\b/i.test(low)) {
     for(const[kw,arr] of Object.entries(PUPPY_A)){
@@ -1719,32 +1786,71 @@ function generateResponse2(userText) {
     }
   }
 
-  // 10. Emotion / mood responses
+  // 10. Emotion / mood responses — expanded with variety & dedup
   if(CTX.mood){
     const emoR={
       happy:[
         R(`Yay! I'm so happy you're happy${nameTag()}! Your happiness makes my tail go crazy! What's making you feel so good? 🐶💕`,
           `太好了！你开心我尾巴都摇疯了！什么事让你这么开心？`),
+        R(`That's wonderful${nameTag()}! When you're happy, I'm happy too! It's like we're connected by a happy tail! 🐾 Tell me, what happened?`,
+          `太棒了${nameTag()}！你开心我也开心！就像我们用尾巴连在一起！🐾 说说发生了什么？`),
+        R(`Woohoo${nameTag()}! Happy vibes make me want to zoom around in circles! 🌀 What's the good news?`,
+          `哇呼${nameTag()}！开心的气氛让我想转圈圈跑！🌀 有什么好消息？`),
+        R(`I can feel your happiness through the screen${nameTag()}! It's warming my puppy heart! ☀️ What made your day?`,
+          `我能通过屏幕感受到你的开心${nameTag()}！我的小狗心都暖了！☀️ 今天什么让你这么开心？`),
+        R(`That makes my ears perk up! Nothing beats a happy friend! 🐶✨ Can you tell me in English what made you smile?`,
+          `我的耳朵都竖起来了！没什么比开心的朋友更好了！🐶✨ 能用英语告诉我什么让你笑了？`),
       ],
       sad:[
         R(`Aww${nameTag()}, I'm sorry you're feeling sad. I'm right here with you. Want to tell me what happened? Or we could play a game to cheer up! 💛`,
           `哦${nameTag()}，你难过我很心疼。我在这里陪你。想说说是怎么回事，还是玩个游戏开心一下？`),
+        R(`Oh no${nameTag()}, I wish I could give you a big puppy hug right now! 🐾 Sometimes talking helps — want to tell me about it?`,
+          `哦不${nameTag()}，我好想给你一个大大的拥抱！🐾 有时候说出来会好一些——想跟我说说吗？`),
+        R(`Hey${nameTag()}, even the rainiest days have a rainbow after. 🌈 I'm here to listen. What's on your mind?`,
+          `嘿${nameTag()}，再大的雨也会有彩虹。🌈 我在这里听你说。你在想什么？`),
+        R(`I'm sending you all my puppy warmth${nameTag()}! 🐶💕 Remember, it's okay to feel sad. Want to play something fun to cheer up?`,
+          `我把所有的小狗温暖都送给你${nameTag()}！💕 记住，难过也没关系。想玩点有趣的开心一下吗？`),
       ],
       tired:[
         R(`Being tired means you worked hard! That's something to be proud of${nameTag()}! Want to just chat or play something easy? 💪`,
           `累了说明你很努力！值得骄傲${nameTag()}！想随便聊聊还是玩个轻松的游戏？`),
+        R(`Aww${nameTag()}, you must have been busy! Take a rest — I'll keep you company! Maybe tell me something simple, like what you ate today? 🐶`,
+          `哦${nameTag()}，你一定很忙！休息一下吧——我陪你！说点简单的，比如今天吃了什么？`),
+        R(`Tired puppies and tired kids both need cozy time${nameTag()}! 🛋️ Want to just relax and chat about something easy?`,
+          `累了的小狗和累了的孩子都需要舒服的时间${nameTag()}！🛋️ 想放松一下聊点轻松的？`),
       ],
       bored:[
         R(`Bored? I have the perfect cure! Let's play a game! How about Guess the Animal, or Would You Rather? 🎮`,
           `无聊？我有完美的解决方案！来玩游戏吧！猜动物还是你会选择哪个？`),
+        R(`Oh no, boredom alert! 🚨 Let me save you! How about a riddle? Or a fun word challenge?`,
+          `不好，无聊警报！🚨 让我来救你！来个谜语？还是有趣的词汇挑战？`),
+        R(`Bored${nameTag()}? That won't last long with me around! 🐶 Let's do something fun — say "play a game" or ask me anything!`,
+          `无聊了${nameTag()}？有我在不会无聊太久的！🐶 做点有趣的事——说"play a game"或问我任何问题！`),
       ],
       angry:[
         R(`It's okay to feel angry sometimes. Take a deep breath with me — woof! Want to talk about it or play a game to feel better? 🐶`,
           `有时候生气也没关系。跟我深呼吸——汪！想说说还是玩游戏好起来？`),
+        R(`Hey${nameTag()}, anger is a big feeling. Let it out, then let's find something to make you smile! 💪🐾`,
+          `嘿${nameTag()}，生气是一种强烈的情绪。先发泄一下，然后让我们找点让你微笑的事！💪🐾`),
+      ],
+      excited:[
+        R(`Ooh I can feel your excitement${nameTag()}! My tail is wagging too! 🐶💨 Tell me what's so exciting!`,
+          `哦我能感受到你的兴奋${nameTag()}！我的尾巴也在摇！🐶💨 告诉我什么让你这么兴奋！`),
+        R(`YES! That energy is amazing${nameTag()}! ⚡ You're making me want to jump up and down! What happened?`,
+          `对！这种能量太棒了${nameTag()}！⚡ 你让我想跳上跳下！发生了什么？`),
+      ],
+      confused:[
+        R(`Confused${nameTag()}? That's normal! Let me try to help! Can you tell me what you're thinking about? 🤔`,
+          `困惑了${nameTag()}？这很正常！让我帮帮你！能告诉我你在想什么吗？🤔`),
+        R(`Hmm, let's figure it out together${nameTag()}! Two heads — well, one human head and one puppy head — are better than one! 🐶`,
+          `嗯，让我们一起想想${nameTag()}！两个脑袋——一个人头一个小狗脑袋——比一个好！🐶`),
       ],
     };
-    if(emoR[CTX.mood] && Math.random()>0.25){
-      const r=pick(emoR[CTX.mood]);
+    if(emoR[CTX.mood]){
+      // Pick a response that wasn't recently used
+      const pool = emoR[CTX.mood];
+      let r = pool.find(resp => !isRecentResponse(resp.en)) || pick(pool);
+      trackResponse(r.en);
       CTX.mood='';
       return {response:r, quickReplies:["Let me tell you...","Play a game!","I feel better now"]};
     }
@@ -1816,7 +1922,27 @@ function generateResponse2(userText) {
   }
 
   // 14. SMART FALLBACK — use context, QBANK, and variety
+  // Sometimes give "don't understand" feedback naturally (~30% of the time)
+  const NOT_UNDERSTOOD = [
+    R(`Hmm, I'm not sure I got that${nameTag()}! 🐶 Could you say it again in a different way? Try starting with "I like..." or "I think..." or ask me a question!`,
+      `嗯，我不太确定听懂了${nameTag()}！🐶 能换个方式再说一遍吗？试试"I like..."或"I think..."或问我一个问题！`),
+    R(`Oops, my puppy ears couldn't quite catch that! 🐾 Can you try saying it again? Maybe use simpler words?`,
+      `哎呀，我的小狗耳朵没听清楚！🐾 能再说一遍吗？试试用简单的词？`),
+    R(`I want to understand but I'm a bit confused${nameTag()}! 🤔 Try telling me more, or let's switch to a new topic!`,
+      `我想听懂但有点困惑${nameTag()}！🤔 试试多说一点，或者我们换个话题！`),
+    R(`Hmm, that's a tricky one for a puppy! 😅 How about we talk about something I'm better at — like your hobbies, food, or play a game?`,
+      `嗯，这个对小狗来说有点难！😅 聊聊我更擅长的——比如你的爱好、吃的、或者玩个游戏？`),
+    R(`Sorry${nameTag()}, I didn't quite get that! 🐶 Maybe try a full sentence? Like "My favorite thing is..." or "I want to talk about..."`,
+      `对不起${nameTag()}，我没太听懂！🐶 试试完整的句子？比如"My favorite thing is..."或"I want to talk about..."`),
+  ];
+  if (Math.random() < 0.3) {
+    const r = NOT_UNDERSTOOD.find(resp => !isRecentResponse(resp.en)) || pick(NOT_UNDERSTOOD);
+    trackResponse(r.en);
+    return {response:r, quickReplies:["Let me try again!","Play a game!","Tell me about animals!"]};
+  }
+
   const fb = pickFallback();
+  trackResponse(fb.en);
 
   // Strategy: alternate between pure fallback, fallback+question, QBANK item, echo response
   const strategy = CTX.turnCount % 5;
@@ -2012,6 +2138,28 @@ const GRAMMAR_RULES = [
   {p:/\bshe\s+teached\b/i, fix:"she taught", tip:"teach 的过去式是 taught", en:"Past tense of 'teach' is 'taught'"},
   {p:/\bi\s+thinked\b/i, fix:"I thought", tip:"think 的过去式是 thought", en:"Past tense of 'think' is 'thought'"},
   {p:/\bwe\s+buyed\b/i, fix:"we bought", tip:"buy 的过去式是 bought", en:"Past tense of 'buy' is 'bought'"},
+  // --- Verb + pronoun semantic errors ---
+  {p:/\bi\s+finish\s+(you|him|her|it|them)\b/i, fix:"I finished it / I'm done", tip:"finish 后面一般接事情不接人，比如 I finished my homework", en:"After 'finish', use the thing you completed, not a person"},
+  {p:/\bi\s+finished\s+(you|him|her)\b/i, fix:"I finished it / I'm done with...", tip:"finish 后面一般接事情不接人", en:"'Finish' usually takes a thing, not a person"},
+  {p:/\bi\s+(am\s+)?making\s+(you|him|her)\s+(today|now|right now)\b/i, fix:"I made you / I'm making it for you", tip:"make 后面一般接物品，如果做给某人用 make it for you", en:"'Make' + thing + 'for you'. Or 'I made you' = I created you"},
+  {p:/\bi\s+make\s+you\b/i, fix:"I made you / I'm making it", tip:"make 一般接物品：make a cake, make it。做给某人说 make it for you", en:"Use 'make' + thing, or 'make it for you'"},
+  {p:/\bi\s+give\s+you\s+(today|now)\b/i, fix:"I'll give it to you / I give you...", tip:"give 需要接具体的东西", en:"'Give' needs an object: give you something"},
+  // --- Common Chinglish patterns ---
+  {p:/\bi\s+very\s+like\b/i, fix:"I really like", tip:"中文的'非常喜欢'用 really like，不用 very like", en:"Use 'really like' not 'very like'"},
+  {p:/\bi\s+already\s+eat\b/i, fix:"I already ate / I've already eaten", tip:"already 通常配过去式或完成时", en:"Use past tense with 'already': 'I already ate'"},
+  {p:/\bi\s+no\s+know\b/i, fix:"I don't know", tip:"英文否定用 don't，不用 no", en:"Use 'don't' for negation, not 'no'"},
+  {p:/\bi\s+no\s+like\b/i, fix:"I don't like", tip:"英文否定用 don't，不用 no", en:"Use 'don't like' not 'no like'"},
+  {p:/\bopen\s+the\s+light\b/i, fix:"turn on the light", tip:"开灯用 turn on，不用 open", en:"Use 'turn on the light', not 'open'"},
+  {p:/\bclose\s+the\s+light\b/i, fix:"turn off the light", tip:"关灯用 turn off，不用 close", en:"Use 'turn off the light', not 'close'"},
+  {p:/\bplay\s+computer\b/i, fix:"use the computer / play computer games", tip:"玩电脑要说玩什么", en:"Say 'play computer games' or 'use the computer'"},
+  {p:/\bsee\s+a\s+book\b/i, fix:"read a book", tip:"看书用 read，不用 see", en:"Use 'read a book', not 'see a book'"},
+  {p:/\blook\s+a\s+book\b/i, fix:"read a book", tip:"看书用 read，不用 look", en:"Use 'read a book', not 'look a book'"},
+  {p:/\bi\s+am\s+come\s+from\b/i, fix:"I come from", tip:"come from 不需要 am", en:"Don't use 'am' with 'come from'"},
+  {p:/\bmy\s+hobby\s+is\s+play\b/i, fix:"my hobby is playing", tip:"is 后面用 playing 形式", en:"After 'is', use the -ing form: 'playing'"},
+  {p:/\bi\s+feel\s+very\s+tiredly\b/i, fix:"I feel very tired", tip:"feel 后面用形容词不用副词", en:"After 'feel', use adjective (tired), not adverb (tiredly)"},
+  {p:/\bi\s+have\s+many\s+homework\b/i, fix:"I have a lot of homework", tip:"homework 不可数，用 a lot of", en:"'Homework' is uncountable: use 'a lot of homework'"},
+  {p:/\bi\s+went\s+to\s+home\b/i, fix:"I went home", tip:"go home 不加 to", en:"'Go home' — no 'to' needed"},
+  {p:/\bhe\s+is\s+come\b/i, fix:"he is coming / he comes", tip:"正在来用 is coming", en:"Use 'is coming' for right now"},
 ];
 
 // Score user's English and generate encouraging feedback
@@ -2038,38 +2186,48 @@ function evaluateEnglish(userText) {
     const corrected = userText.replace(err.p, err.fix);
     // Vary the feedback style
     const templates = [
-      {en:`💡 **Grammar tip**: Try saying "${corrected}"! ${err.en}. You're doing great!`,
-       zh:`💡 **语法小提示**：试试说 "${corrected}"！${err.tip}。你已经很棒了！`},
+      {en:`💡 Grammar tip: Try saying "${corrected}"! ${err.en}. You're doing great!`,
+       zh:`💡 语法小提示：试试说 "${corrected}"！${err.tip}。你已经很棒了！`},
       {en:`💡 Quick fix: "${corrected}" — ${err.en}. Keep practicing!`,
        zh:`💡 小修正："${corrected}" —— ${err.tip}。继续加油！`},
-      {en:`💡 Hey, small tip! Instead of that, try: "${corrected}" — ${err.en}. Your English is getting better!`,
+      {en:`💡 Hey, small tip! Try: "${corrected}" — ${err.en}. Getting better!`,
        zh:`💡 小提示！可以这样说："${corrected}" —— ${err.tip}。你的英语越来越好了！`},
     ];
     const t = templates[Math.floor(Math.random() * templates.length)];
     return {type: 'correction', ...t};
   }
 
-  // No errors — praise based on sentence length/complexity
-  if (wordCount >= 8) {
+  // Semantic check — detect sentences that are grammatically OK but semantically odd
+  const oddPatterns = [
+    {p:/\bi\s+(finish|finished|make|made|eat|ate)\s+(you|him|her|them)\b/i, hint:"这个句子听起来有点奇怪，动词后面一般接具体的东西"},
+    {p:/\bi\s+am\s+\w+ing\s+(you|him|her|them)\s*(today|now|right now)?\s*$/i, hint:"这个句子意思不太清楚，试试说说你在做什么具体的事情"},
+  ];
+  for (const odd of oddPatterns) {
+    if (odd.p.test(low)) {
+      return {
+        type: 'suggestion',
+        en: `💡 Hmm, I'm not sure I fully understand that sentence. Can you try saying it differently? Maybe tell me more about what you mean! 🤔`,
+        zh: `💡 ${odd.hint}。试试换一种说法，或者多说一些让Cody听明白！🤔`
+      };
+    }
+  }
+
+  // No errors — only praise longer, well-formed sentences
+  if (wordCount >= 10) {
     const praises = [
       {en:"⭐ Great sentence! Your English is really impressive!", zh:"⭐ 好句子！你的英语真的很棒！"},
       {en:"⭐ Wow, that was a wonderful sentence! Very natural!", zh:"⭐ 哇，这句话太棒了！非常自然！"},
-      {en:"⭐ Excellent English! You speak like a native! Keep it up!", zh:"⭐ 英语太棒了！说得像母语者一样！继续保持！"},
-      {en:"⭐ Perfect grammar! You're really good at English!", zh:"⭐ 语法完美！你英语真的很厉害！"},
+      {en:"⭐ Excellent English! You speak like a pro! Keep it up!", zh:"⭐ 英语太棒了！说得很专业！继续保持！"},
     ];
     const p = praises[Math.floor(Math.random() * praises.length)];
     return {type: 'praise', ...p};
   }
-  if (wordCount >= 5) {
-    // Occasionally praise medium-length correct sentences
-    if (Math.random() > 0.6) {
-      const praises = [
-        {en:"⭐ Nice sentence! That's correct English!", zh:"⭐ 好句子！这是正确的英语！"},
-        {en:"⭐ Good job! Your grammar is correct!", zh:"⭐ 做得好！你的语法是正确的！"},
-      ];
-      const p = praises[Math.floor(Math.random() * praises.length)];
-      return {type: 'praise', ...p};
-    }
+  if (wordCount >= 6 && Math.random() > 0.7) {
+    const praises = [
+      {en:"⭐ Nice sentence! That's correct English!", zh:"⭐ 好句子！这是正确的英语！"},
+    ];
+    const p = praises[Math.floor(Math.random() * praises.length)];
+    return {type: 'praise', ...p};
   }
   return null; // No feedback needed
 }
@@ -2090,6 +2248,7 @@ function send(text, isQuickReply) {
 
   setTimeout(() => {
     // Main response
+    trackResponse(result.response.en);
     addAiMsg(result.response.en, result.response.zh);
 
     // Grammar tip as a separate small message (after main response, with delay)
@@ -2117,8 +2276,12 @@ function addGrammarTip(tip) {
     </div>`;
   chatArea.appendChild(row);
   scrollBottom();
-  // Speak the English grammar tip
-  speak(tip.en.replace(/\*\*/g,'').replace(/💡|⭐/g,''));
+  // Bilingual TTS: speak English first, then Chinese
+  if (tip.zh) {
+    speakBilingual(tip.en.replace(/\*\*/g,'').replace(/💡|⭐/g,''), tip.zh.replace(/\*\*/g,'').replace(/💡|⭐/g,''));
+  } else {
+    speak(tip.en.replace(/\*\*/g,'').replace(/💡|⭐/g,''));
+  }
 }
 
 function handleSend() {
@@ -2213,6 +2376,47 @@ function speakWord(w) {
   u.volume = 1;
   if (preferredVoice) u.voice = preferredVoice;
   speechSynthesis.speak(u);
+}
+
+// Chinese TTS — speak Chinese text (English words within get pronounced by Chinese voice)
+function speakChinese(text) {
+  if (!('speechSynthesis' in window)) return;
+  const clean = text
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'')
+    .replace(/[⭐🌟💪💕🌈🌙🎉🤔😊🐶🦴🍦☀️⏰👫🐾🎨🎬🎵📚📖🏫🏟️🎁🏆🌍✈️🎥📝🧳💡]/g,'')
+    .replace(/\*\*/g,'').trim();
+  if (!clean) return;
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'zh-CN';
+  u.rate = 1.0;
+  u.pitch = 1.1;
+  u.volume = 1;
+  // Try to find a Chinese voice
+  const voices = speechSynthesis.getVoices();
+  const zhVoice = voices.find(v => /zh[-_]CN/i.test(v.lang)) || voices.find(v => /zh/i.test(v.lang));
+  if (zhVoice) u.voice = zhVoice;
+  speechSynthesis.speak(u);
+}
+
+// Bilingual TTS — speak English part first, then Chinese part
+function speakBilingual(enText, zhText) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  // First speak English
+  const enClean = enText.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').replace(/[⭐🌟💪💕🌈🌙🎉🤔😊🐶🦴🍦☀️⏰👫🐾🎨🎬🎵📚📖🏫🏟️🎁🏆🌍✈️🎥📝🧳💡]/g,'').replace(/\*\*/g,'').trim();
+  if (enClean) {
+    const uEn = new SpeechSynthesisUtterance(enClean);
+    uEn.lang = 'en-US';
+    uEn.pitch = Math.max(0.5, Math.min(2, (isIOS ? 1.55 : 1.7) + (Math.random() - 0.5) * 0.12));
+    uEn.rate = Math.max(0.5, Math.min(2, (isIOS ? 1.06 : 1.02) + (Math.random() - 0.5) * 0.08));
+    uEn.volume = 1;
+    if (preferredVoice) uEn.voice = preferredVoice;
+    speechSynthesis.speak(uEn);
+  }
+  // Then speak Chinese
+  if (zhText) {
+    setTimeout(() => speakChinese(zhText), 200);
+  }
 }
 
 // ============================================================
